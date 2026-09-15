@@ -15,7 +15,7 @@
   <div class="head">
     <div>
       <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.1.4</div>
+      <div class="version">V3.1.6</div>
       <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
     </div>
     <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
@@ -164,13 +164,29 @@
     <p id="buyLabel"></p>
     <input type="hidden" id="buyId">
     <label>Jumlah beli (pack)</label>
-    <input id="buyPack" type="number" min="1" inputmode="numeric" value="1">
+    <input id="buyPack" type="number" min="1" inputmode="numeric" value="1" oninput="updateBuyTotal()">
+    <label>Harga per pack (Rp)</label>
+    <input id="buyPrice" type="number" min="0" inputmode="numeric" value="0" placeholder="Contoh: 10000" oninput="updateBuyTotal()">
     <div class="info" id="buyInfo"></div>
-    <div class="actions"><button class="primary" onclick="saveBuy()">Simpan</button><button onclick="closeBuy()">Batal</button></div>
+    <div class="buyTotal">Total pembelian: <b id="buyTotal">Rp 0</b></div>
+    <div class="actions"><button class="primary" onclick="saveBuy()">Simpan Pembelian</button><button onclick="closeBuy()">Batal</button></div>
   </div>
 </div>
 
 <script src="app.js"></script>
-<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
+<script>
+if("serviceWorker" in navigator){
+  navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then(reg=>{
+    reg.update().catch(()=>{});
+  }).catch(()=>{});
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{
+    if(!sessionStorage.getItem("pwa-updated")){
+      sessionStorage.setItem("pwa-updated","1");
+      location.reload();
+    }
+  });
+  window.addEventListener("pageshow",()=>navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{}));
+}
+</script>
 </body>
 </html>
