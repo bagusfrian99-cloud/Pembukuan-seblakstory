@@ -1,9 +1,8 @@
 {
   "name": "Pembukuan Seblak Story",
   "short_name": "Pembukuan",
-  "description": "Pembukuan keuangan dan stok sederhana Seblak Story.",
+  "description": "Pembukuan keuangan dan stok Seblak Story",
   "start_url": "./",
-  "scope": "./",
   "display": "standalone",
   "background_color": "#fffdf4",
   "theme_color": "#f4c400",
