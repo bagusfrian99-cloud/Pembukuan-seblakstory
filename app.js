@@ -154,7 +154,7 @@ function applyReportFilter(){
     to:$("reportTo").value||""
   };
   renderReport();
-  appAlert("Filter laporan berhasil diterapkan. Transaksi manual maupun sinkronisasi POS yang masuk dalam periode akan ditampilkan.","Laporan diperbarui");
+  appAlert("Filter laporan berhasil diterapkan.","Laporan diperbarui");
 }
 function txDay(x){
   const v=String(x?.date||"");
@@ -224,7 +224,7 @@ function saveSyncHistory(h){localStorage.setItem(POS_SYNC_KEY,JSON.stringify(h))
 function renderSyncHistory(){
   const el=$("syncHistory"); if(!el)return;
   const h=readSyncHistory();
-  el.innerHTML=h.length?h.slice().reverse().slice(0,10).map(x=>`
+  el.innerHTML=h.length?h.slice().reverse().slice(0,1).map(x=>`
     <div class="buyrow">
       <span><b>${esc(x.file||"Backup POS")}</b><div class="buyinfo">${esc(x.date||"")}</div></span>
       <span>💵 Tunai Rp ${Math.round(x.cash||0).toLocaleString("id-ID")}<br>💳 Non Tunai Rp ${Math.round(x.nonCash||0).toLocaleString("id-ID")}<br>💰 Total Rp ${Math.round((x.cash||0)+(x.nonCash||0)).toLocaleString("id-ID")}</span>
