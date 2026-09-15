@@ -200,6 +200,7 @@ function importPOSBackup(e){
       const byDay={};
       let eligible=0, ignored=0;
 
+      // Pemasukan: hanya transaksi yang berada di dalam shift yang sudah ditutup.
       (p.transactions||[]).forEach(x=>{
         const d=posDateObj(x);
         const amount=Number(x?.total??x?.amount??x?.nominal??0)||0;
@@ -210,15 +211,14 @@ function importPOSBackup(e){
         const method=posMethod(x);
         if(isCashMethod(method))byDay[k].cash+=amount;
         else if(isNonCashMethod(method))byDay[k].nonCash+=amount;
-        else ignored++;
+        else {ignored++;return}
         eligible++;
       });
 
-      // Store separate daily records for Cash and Non Tunai so the Nama column is explicit.
-      // Migrate/remove the previous combined daily POS record when present.
+      // Simpan rekap pemasukan harian terpisah: Tunai dan Non Tunai.
       const existing = store.tx.filter(x=>x.source==="POS_DAILY");
       const existingById = new Map(existing.map(x=>[String(x.sourceId),x]));
-      let created=0, updated=0;
+      let created=0, updated=0, expenseCreated=0, expenseUpdated=0;
 
       Object.entries(byDay).forEach(([day,v])=>{
         const dayName=dayLabel(day);
@@ -240,21 +240,55 @@ function importPOSBackup(e){
             cash:r.label==="Tunai"?r.amount:0,
             nonCash:r.label==="Non Tunai"?r.amount:0
           };
-          if(existingById.has(r.key)){
-            Object.assign(existingById.get(r.key),record);
-            updated++;
-          }else{
-            store.tx.push(record);
-            created++;
-          }
+          if(existingById.has(r.key)){Object.assign(existingById.get(r.key),record);updated++}
+          else{store.tx.push(record);created++}
         });
-        // Remove legacy combined record for this day, if it exists.
         const legacy=existingById.get(`POS-DAY-${day}`);
-        if(legacy){
-          const idx=store.tx.indexOf(legacy);
-          if(idx>=0)store.tx.splice(idx,1);
+        if(legacy){const idx=store.tx.indexOf(legacy);if(idx>=0)store.tx.splice(idx,1)}
+      });
+
+      // Pengeluaran POS: simpan satu per satu agar nama/keterangan dan nominal tidak hilang.
+      // Hanya pengeluaran dari shift yang sudah ditutup yang diambil, sama prinsipnya
+      // dengan pemasukan. sourceId menggunakan ID pengeluaran POS agar sinkron ulang
+      // tidak membuat transaksi pengeluaran ganda.
+      const expenses=Array.isArray(p.expenses)?p.expenses:[];
+      const existingExpenses=new Map(
+        store.tx.filter(x=>x.source==="POS_EXPENSE").map(x=>[String(x.sourceId),x])
+      );
+      expenses.forEach(x=>{
+        const d=posDateObj(x);
+        const amount=Number(x?.amount??x?.total??x?.nominal??0)||0;
+        if(!d||amount<=0){ignored++;return}
+        let closed=false;
+        if(x?.shiftId && Array.isArray(p.shifts)){
+          const sh=p.shifts.find(s=>String(s?.id)===String(x.shiftId));
+          closed=!!sh && !!sh.closedAt;
+        }
+        if(!closed) closed=shiftClosedForDate(d,p.shifts);
+        if(!closed){ignored++;return}
+        const sourceId=String(x.id||`EXP-${d.getTime()}-${amount}-${String(x.note||"")}`);
+        const record={
+          id:existingExpenses.get(sourceId)?.id || `POS-EXP-${sourceId}`,
+          source:"POS_EXPENSE",
+          sourceId,
+          type:"out",
+          date:d.toISOString(),
+          name:`Pengeluaran POS - ${String(x.note||"Pengeluaran POS").trim()}`,
+          amount,
+          note:String(x.note||"Pengeluaran dari POS"),
+          shiftId:x.shiftId||null
+        };
+        if(existingExpenses.has(sourceId)){
+          Object.assign(existingExpenses.get(sourceId),record);
+          expenseUpdated++;
+        }else{
+          store.tx.push(record);
+          expenseCreated++;
         }
       });
+
+      // Simpan transaksi pembukuan dan riwayat sinkronisasi setelah pemasukan + pengeluaran berhasil diproses.
+      persist();
 
       const h=readSyncHistory();
       h.push({
@@ -263,14 +297,19 @@ function importPOSBackup(e){
         days:Object.keys(byDay).length,
         cash:Object.values(byDay).reduce((a,v)=>a+v.cash,0),
         nonCash:Object.values(byDay).reduce((a,v)=>a+v.nonCash,0),
-        created,updated,ignored
+        created,updated,
+        expenseCreated,expenseUpdated,
+        ignored
       });
       saveSyncHistory(h); renderSyncHistory();
 
-      const total=Object.values(byDay).reduce((a,v)=>a+v.cash+v.nonCash,0);
-      const msg=`Sinkronisasi harian selesai.\n\nHari: ${Object.keys(byDay).length}\nCash: Rp ${Math.round(Object.values(byDay).reduce((a,v)=>a+v.cash,0)).toLocaleString("id-ID")}\nNon Tunai: Rp ${Math.round(Object.values(byDay).reduce((a,v)=>a+v.nonCash,0)).toLocaleString("id-ID")}\nTotal: Rp ${Math.round(total).toLocaleString("id-ID")}\n\n${created} rekap baru, ${updated} rekap diperbarui.`;
+      const cashTotal=Object.values(byDay).reduce((a,v)=>a+v.cash,0);
+      const nonCashTotal=Object.values(byDay).reduce((a,v)=>a+v.nonCash,0);
+      const expenseTotal=expenses.reduce((a,x)=>a+(Number(x?.amount??x?.total??x?.nominal??0)||0),0);
+      const msg=`Sinkronisasi POS selesai.\n\nPemasukan Tunai: Rp ${Math.round(cashTotal).toLocaleString("id-ID")}\nPemasukan Non Tunai: Rp ${Math.round(nonCashTotal).toLocaleString("id-ID")}\nPengeluaran POS: Rp ${Math.round(expenseTotal).toLocaleString("id-ID")}\n\n${created} pemasukan baru, ${updated} pemasukan diperbarui.\n${expenseCreated} pengeluaran baru, ${expenseUpdated} pengeluaran diperbarui.`;
       if(status)status.textContent=msg.replaceAll("\n"," • ");
       appAlert(msg,"Sinkronisasi POS");
+      refresh();
     }catch(err){
       if(status)status.textContent="Gagal: "+err.message;
       appAlert(err.message,"Sinkronisasi gagal");
@@ -278,21 +317,3 @@ function importPOSBackup(e){
   };
   reader.readAsText(file);
 }
-
-function backup(){let data={version:"3.2.5",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.5.json";a.click()}
-function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.store&&Array.isArray(x.store.tx)){store=x.store;stocks=Array.isArray(x.stocks)?x.stocks:[];}else if(Array.isArray(x)){store={tx:x};stocks=[]}else throw 0;persist();refresh();appAlert("Restore berhasil.","Restore berhasil")}catch(_){appAlert("File backup tidak valid.","Restore gagal")}};r.readAsText(f)}
-function clearAll(){
-  appConfirm("Semua transaksi dan stok akan dihapus. Lanjutkan?","Hapus semua data").then(ok=>{
-    if(ok){
-      localStorage.removeItem(KEY);
-      localStorage.removeItem(STOCK_KEY);
-      store={tx:[]};
-      stocks=[];
-      refresh();
-      appAlert("Semua data telah dihapus.","Selesai");
-    }
-  });
-}
-function renderInfo(){$("dataInfo").innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${stocks.length}</b> barang stok<br><small>Data tersimpan di browser/perangkat ini.</small>`}
-function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderInfo();renderSyncHistory()}
-$("reportMonth").value=today().slice(0,7);refresh();
