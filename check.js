@@ -35,7 +35,9 @@ function renderStock(){
       <td>
         <button class="btn" onclick="stockInV31(${i})">+ Beli</button>
         <button class="btn" onclick="stockSOV31(${i})">SO</button>
-        <button class="btn danger" onclick="delStock(${i})">Hapus</button>
+        <button class="btn" onclick="editStockV31(${i})">✏️ Edit</button>
+        <button class="btn danger" onclick="deleteStockV31(${i})">🗑 Hapus</button>
+       
       </td>
     </tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">Belum ada data stok.</td></tr>';
@@ -78,6 +80,24 @@ function renderPurchaseListV31(){
   }).join('');
 }
 
+
+function editStockV31(i){
+  const x=store.stock[i]; if(!x)return;
+  const name=prompt("Nama bahan:",x.name); if(name===null)return;
+  const unit=prompt("Satuan stok (pcs/kg/gram/liter/ml/bungkus/botol):",x.unit); if(unit===null)return;
+  const pack=prompt(`Isi 1 pack (${unit}):`,String(x.packQty||1)); if(pack===null)return;
+  const min=prompt(`Stok minimum (${unit}):`,String(x.min||0)); if(min===null)return;
+  if(!name.trim() || Number(pack)<=0 || Number(min)<0){alert("Data tidak valid.");return;}
+  x.name=name.trim(); x.unit=unit.trim()||x.unit; x.packQty=Number(pack); x.min=Number(min);
+  persist(); renderStock(); renderDashboard();
+}
+function deleteStockV31(i){
+  const x=store.stock[i]; if(!x)return;
+  if(!confirm(`Hapus barang "${x.name}" dari daftar stok?\\n\\nData transaksi keuangan tidak ikut dihapus.`))return;
+  store.stock.splice(i,1);
+  persist(); renderStock(); renderDashboard();
+}
+
 function getReportRows(){let p=$('period').value,d=today(),r=[];if(p==='today')r=store.tx.filter(x=>x.date.slice(0,10)===d);else if(p==='week'){let s=new Date();s.setDate(s.getDate()-6);let a=s.toLocaleDateString('sv-SE');r=store.tx.filter(x=>x.date.slice(0,10)>=a&&x.date.slice(0,10)<=d)}else if(p==='month'){let m=$('reportMonth').value||d.slice(0,7);r=store.tx.filter(x=>x.date.slice(0,7)===m)}else{let f=$('reportFrom').value,t=$('reportTo').value;r=store.tx.filter(x=>(!f||x.date.slice(0,10)>=f)&&(!t||x.date.slice(0,10)<=t))}return r.sort((a,b)=>a.date.localeCompare(b.date))}
 function renderReport(){let r=getReportRows(),i=sum(r,'in'),o=sum(r,'out');$('reportSummary').innerHTML=`<div class="grid"><div class="card"><small>Pemasukan</small><div class="value green">${money(i)}</div></div><div class="card"><small>Pengeluaran</small><div class="value red">${money(o)}</div></div><div class="card"><small>Laba Bersih</small><div class="value">${money(i-o)}</div></div><div class="card"><small>Transaksi</small><div class="value">${r.length}</div></div></div>`;$('reportTable').innerHTML=r.map(x=>`<tr><td>${esc(x.date.replace('T',' '))}</td><td>${x.type==='in'?'Pemasukan':'Pengeluaran'}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td class="right">${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>'}
 function printReport(){let p=document.querySelector('.page.active');p.classList.add('printable');window.print();p.classList.remove('printable')}
@@ -87,7 +107,7 @@ function addCategory(){let c=$('newCat').value.trim();if(!c)return;if(store.cats
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(store,null,2)],{type:'application/json'}));a.download='backup-pembukuan-seblak-story-v3.1.json';a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x||!Array.isArray(x.tx))throw 0;store=normalize(x);persist();refresh();alert('Restore berhasil.')}catch(_){alert('File backup tidak valid.')}};r.readAsText(f)}
 function clearAll(){if(confirm('SEMUA data transaksi, stok, dan kategori akan dihapus. Lanjutkan?')){localStorage.removeItem(KEY);store=normalize({...emptyStore});refresh()}}
-function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.stock.length}</b> bahan stok<br><b>${store.debts.length}</b> data hutang/piutang<br><small>Versi aplikasi: V3.1 • Data lokal perangkat.</small>`}
+function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.stock.length}</b> bahan stok<br><b>${store.debts.length}</b> data hutang/piutang<br><small>Versi aplikasi: V3.1.1 • Data lokal perangkat.</small>`}
 function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderCats();renderInfo()}
 $('reportMonth').value=today().slice(0,7);refresh();
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
