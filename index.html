@@ -10,11 +10,12 @@
 <link rel="manifest" href="manifest.json">
 <title>Pembukuan Seblak Story</title>
 <link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 <header>
  <div class="head">
-  <div><div class="brand">🌶️ Pembukuan Seblak Story</div><div class="sub">Pembukuan toko • tersimpan di perangkat</div></div>
+  <div><div class="brand">🌶️ Pembukuan Seblak Story</div><div class="sub">Pembukuan toko • tersimpan di perangkat • v2</div></div>
   <button class="btn" onclick="openTx()">＋ Transaksi</button>
  </div>
  <nav id="nav">
@@ -29,6 +30,12 @@
 <main>
 <section id="dashboard" class="page active">
 <h2>Dashboard</h2>
+<div class="panel quick-actions no-print">
+<button onclick="openTx()">➕ Pemasukan</button>
+<button onclick="quickExpense()">➖ Pengeluaran</button>
+<button onclick="page('laporan',document.querySelectorAll('nav button')[2])">📊 Laporan</button>
+<button onclick="backup()">💾 Backup</button>
+</div>
 <div class="grid">
  <div class="card"><small>Saldo</small><div class="value" id="dSaldo">Rp0</div></div>
  <div class="card"><small>Pemasukan Hari Ini</small><div class="value green" id="dInToday">Rp0</div></div>
@@ -69,7 +76,7 @@
  <div><label>Sampai</label><input type="date" id="reportTo" onchange="renderReport()"></div>
 </div>
 <div id="reportSummary"></div>
-<div class="actions no-print"><button class="btn primary" onclick="printReport()">🖨 Cetak</button><button class="btn" onclick="exportCSV()">📄 Export CSV</button></div>
+<div class="actions no-print"><button class="btn primary" onclick="printReport()">🖨 Cetak</button><button class="btn" onclick="exportCSV()">📄 Export CSV</button><button class="btn" onclick="exportXLSX()">📗 Export Excel</button></div>
 </div>
 <div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
 </section>
@@ -96,7 +103,7 @@
 <button class="btn danger" onclick="clearAll()">Hapus Semua Data</button>
 </div>
 </div>
-<div class="panel"><h3>Data</h3><div id="dataInfo"></div></div>
+<div class="panel"><h3>Data</h3><div id="dataInfo"></div><div class="kpi-note">Snapshot lokal diperbarui otomatis setiap kali data disimpan.</div></div>
 </section>
 </main>
 

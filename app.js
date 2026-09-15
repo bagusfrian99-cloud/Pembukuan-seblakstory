@@ -79,3 +79,68 @@ function clearAll(){if(confirm("Semua transaksi dan kategori akan dihapus. Lanju
 function renderInfo(){$("dataInfo").innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.cats.length}</b> kategori<br><small>Data tersimpan di browser/perangkat ini.</small>`}
 function refresh(){renderDashboard();renderTransactions();renderReport();renderCats();renderInfo()}
 refresh();
+
+
+/* ===== Seblak Story Bookkeeping v2 enhancements ===== */
+const AUTO_BACKUP_KEY = "seblak_story_last_auto_backup_v2";
+
+function toast(msg){
+  let t=document.querySelector(".toast");
+  if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t);}
+  t.textContent=msg;t.classList.add("show");
+  clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
+}
+
+function quickExpense(){
+  openTx();
+  setTimeout(()=>{
+    const el=document.getElementById("tType");
+    if(el) el.value="out";
+  },0);
+}
+
+function exportXLSX(){
+  const rows=getReportRows().map(x=>({
+    "Tanggal":x.date,
+    "Jenis":x.type==="in"?"Pemasukan":"Pengeluaran",
+    "Nama":x.name,
+    "Kategori":x.cat,
+    "Jumlah":x.amount,
+    "Keterangan":x.note||""
+  }));
+  if(!rows.length){alert("Tidak ada data untuk diekspor.");return;}
+  if(typeof XLSX==="undefined"){
+    alert("Fitur Excel membutuhkan koneksi internet saat pertama kali mengekspor. Gunakan Export CSV jika sedang offline.");
+    return;
+  }
+  const ws=XLSX.utils.json_to_sheet(rows);
+  const wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,"Transaksi");
+  XLSX.writeFile(wb,"Laporan-Pembukuan-Seblak-Story.xlsx");
+  toast("File Excel berhasil dibuat");
+}
+
+/* Automatic local safety snapshot. This does not upload data anywhere. */
+function autoBackupLocal(){
+  try{
+    const payload=JSON.stringify(store);
+    localStorage.setItem(AUTO_BACKUP_KEY, payload);
+  }catch(e){}
+}
+const oldPersist = persist;
+persist = function(){
+  oldPersist();
+  autoBackupLocal();
+};
+
+function restoreLocalSnapshot(){
+  const raw=localStorage.getItem(AUTO_BACKUP_KEY);
+  if(!raw)return false;
+  try{
+    const x=JSON.parse(raw);
+    if(x && Array.isArray(x.tx) && Array.isArray(x.cats)){
+      store=x;persist();refresh();toast("Snapshot lokal dipulihkan");return true;
+    }
+  }catch(e){}
+  return false;
+}
