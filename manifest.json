@@ -1,0 +1,19 @@
+{
+  "name": "Pembukuan Seblak Story",
+  "short_name": "Pembukuan",
+  "description": "Pembukuan harian dan bulanan pemasukan serta pengeluaran Seblak Story.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#fffdf4",
+  "theme_color": "#f4c400",
+  "orientation": "portrait",
+  "lang": "id-ID",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

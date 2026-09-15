@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+<rect width="512" height="512" rx="110" fill="#f4c400"/>
+<circle cx="256" cy="285" r="145" fill="#fff"/>
+<path d="M140 275c25 90 207 90 232 0" fill="none" stroke="#222" stroke-width="24" stroke-linecap="round"/>
+<path d="M180 160c-20-55 35-82 20-125M250 165c-18-48 37-75 22-120M320 170c-15-42 35-67 22-105" fill="none" stroke="#d33" stroke-width="22" stroke-linecap="round"/>
+<text x="256" y="405" text-anchor="middle" font-family="Arial" font-size="42" font-weight="700" fill="#222">SEBLAK</text>
+</svg>

@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f4c400">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Pembukuan Seblak Story">
+<link rel="manifest" href="manifest.json">
+<title>Pembukuan Seblak Story</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+ <div class="head">
+  <div><div class="brand">🌶️ Pembukuan Seblak Story</div><div class="sub">Pembukuan toko • tersimpan di perangkat</div></div>
+  <button class="btn" onclick="openTx()">＋ Transaksi</button>
+ </div>
+ <nav id="nav">
+  <button class="active" onclick="page('dashboard',this)">Dashboard</button>
+  <button onclick="page('transaksi',this)">Transaksi</button>
+  <button onclick="page('laporan',this)">Laporan</button>
+  <button onclick="page('kategori',this)">Kategori</button>
+  <button onclick="page('backup',this)">Backup</button>
+ </nav>
+</header>
+
+<main>
+<section id="dashboard" class="page active">
+<h2>Dashboard</h2>
+<div class="grid">
+ <div class="card"><small>Saldo</small><div class="value" id="dSaldo">Rp0</div></div>
+ <div class="card"><small>Pemasukan Hari Ini</small><div class="value green" id="dInToday">Rp0</div></div>
+ <div class="card"><small>Pengeluaran Hari Ini</small><div class="value red" id="dOutToday">Rp0</div></div>
+ <div class="card"><small>Transaksi Bulan Ini</small><div class="value" id="dCount">0</div></div>
+</div>
+<div class="two">
+ <div class="panel"><h3>Grafik 7 Hari</h3><canvas id="chart" width="900" height="300"></canvas></div>
+ <div class="panel"><h3>Ringkasan Bulan</h3><div id="monthSummary"></div></div>
+</div>
+<div class="panel"><h3>Transaksi Terbaru</h3><div id="recent"></div></div>
+</section>
+
+<section id="transaksi" class="page">
+<h2>Transaksi</h2>
+<div class="panel">
+<div class="two">
+ <div><label>Cari</label><input id="search" placeholder="Cari nama/keterangan..." oninput="renderTransactions()"></div>
+ <div><label>Filter jenis</label><select id="filterType" onchange="renderTransactions()"><option value="">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select></div>
+</div>
+<div class="two">
+ <div><label>Dari tanggal</label><input type="date" id="from" onchange="renderTransactions()"></div>
+ <div><label>Sampai tanggal</label><input type="date" id="to" onchange="renderTransactions()"></div>
+</div>
+</div>
+<div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div>
+</section>
+
+<section id="laporan" class="page">
+<h2>Laporan</h2>
+<div class="panel">
+<div class="two">
+ <div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">7 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
+ <div><label>Bulan</label><input type="month" id="reportMonth" onchange="renderReport()"></div>
+</div>
+<div class="two">
+ <div><label>Dari</label><input type="date" id="reportFrom" onchange="renderReport()"></div>
+ <div><label>Sampai</label><input type="date" id="reportTo" onchange="renderReport()"></div>
+</div>
+<div id="reportSummary"></div>
+<div class="actions no-print"><button class="btn primary" onclick="printReport()">🖨 Cetak</button><button class="btn" onclick="exportCSV()">📄 Export CSV</button></div>
+</div>
+<div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+</section>
+
+<section id="kategori" class="page">
+<h2>Kategori</h2>
+<div class="panel">
+<p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
+<div class="actions">
+<input id="newCat" placeholder="Nama kategori" style="margin:0">
+<button class="btn primary" onclick="addCategory()">Tambah</button>
+</div>
+<div id="cats" style="margin-top:12px"></div>
+</div>
+</section>
+
+<section id="backup" class="page">
+<h2>Backup & Restore</h2>
+<div class="panel">
+<p>Backup menyimpan transaksi dan kategori ke file JSON. File dapat dipindahkan ke HP lain lalu dipulihkan.</p>
+<div class="actions">
+<button class="btn primary" onclick="backup()">⬇ Backup Data</button>
+<label class="btn" style="text-align:center">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)" style="display:none"></label>
+<button class="btn danger" onclick="clearAll()">Hapus Semua Data</button>
+</div>
+</div>
+<div class="panel"><h3>Data</h3><div id="dataInfo"></div></div>
+</section>
+</main>
+
+<div class="modal" id="modal">
+<div class="modalbox">
+<h2 id="modalTitle">Tambah Transaksi</h2>
+<input type="hidden" id="editId">
+<label>Jenis</label><select id="tType"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select>
+<label>Tanggal & waktu</label><input type="datetime-local" id="tDate">
+<label>Nama transaksi</label><input id="tName" placeholder="Contoh: Penjualan Seblak / Beli bahan">
+<label>Kategori</label><select id="tCat"></select>
+<label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0">
+<label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea>
+<div class="actions"><button class="btn primary" onclick="saveTx()">Simpan</button><button class="btn" onclick="closeTx()">Batal</button></div>
+</div></div>
+
+<script src="app.js"></script><script>if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js");}</script>
+</body>
+</html>
