@@ -182,43 +182,47 @@ function importPOSBackup(e){
         eligible++;
       });
 
-      // Replace/update only POS daily summary records; never duplicate.
+      // Store separate daily records for Cash and Non Tunai so the Nama column is explicit.
+      // Migrate/remove the previous combined daily POS record when present.
       const existing = store.tx.filter(x=>x.source==="POS_DAILY");
-      const existingByDay = new Map(existing.map(x=>[String(x.sourceId),x]));
+      const existingById = new Map(existing.map(x=>[String(x.sourceId),x]));
       let created=0, updated=0;
 
       Object.entries(byDay).forEach(([day,v])=>{
-        const total=v.cash+v.nonCash;
-        const sid=`POS-DAY-${day}`;
-        const record={
-          id:existingByDay.get(sid)?.id || sid,
-          source:"POS_DAILY",
-          sourceId:sid,
-          type:"in",
-          date:`${day}T12:00`,
-          name:`Pemasukan POS ${dayLabel(day)}`,
-          amount:total,
-          note:`Cash: Rp ${Math.round(v.cash).toLocaleString("id-ID")} • Non Tunai: Rp ${Math.round(v.nonCash).toLocaleString("id-ID")}`,
-          cash:v.cash,
-          nonCash:v.nonCash
-        };
-        if(existingByDay.has(sid)){
-          const old=existingByDay.get(sid);
-          Object.assign(old,record);
-          updated++;
-        }else{
-          store.tx.push(record);
-          created++;
+        const dayName=dayLabel(day);
+        const rows=[
+          {key:`POS-DAY-${day}-CASH`, label:"Tunai", amount:v.cash, note:`Tunai • Rekap POS ${dayName}`},
+          {key:`POS-DAY-${day}-NONCASH`, label:"Non Tunai", amount:v.nonCash, note:`Non Tunai • Rekap POS ${dayName}`}
+        ];
+        rows.forEach(r=>{
+          if(r.amount<=0)return;
+          const record={
+            id:existingById.get(r.key)?.id || r.key,
+            source:"POS_DAILY",
+            sourceId:r.key,
+            type:"in",
+            date:`${day}T12:00`,
+            name:`Pemasukan POS ${r.label} ${dayName}`,
+            amount:r.amount,
+            note:r.note,
+            cash:r.label==="Tunai"?r.amount:0,
+            nonCash:r.label==="Non Tunai"?r.amount:0
+          };
+          if(existingById.has(r.key)){
+            Object.assign(existingById.get(r.key),record);
+            updated++;
+          }else{
+            store.tx.push(record);
+            created++;
+          }
+        });
+        // Remove legacy combined record for this day, if it exists.
+        const legacy=existingById.get(`POS-DAY-${day}`);
+        if(legacy){
+          const idx=store.tx.indexOf(legacy);
+          if(idx>=0)store.tx.splice(idx,1);
         }
       });
-
-const syncPreview=$("syncPreview");
-      if(syncPreview){
-        const tc=Object.values(byDay).reduce((a,v)=>a+v.cash,0);
-        const tn=Object.values(byDay).reduce((a,v)=>a+v.nonCash,0);
-        syncPreview.innerHTML=`<div class="summary-row"><span>💵 Tunai</span><strong>Rp ${Math.round(tc).toLocaleString("id-ID")}</strong></div><div class="summary-row"><span>💳 Non Tunai</span><strong>Rp ${Math.round(tn).toLocaleString("id-ID")}</strong></div><div class="summary-row"><span>💰 Total Pemasukan</span><strong>Rp ${Math.round(tc+tn).toLocaleString("id-ID")}</strong></div>`;
-      }
-            persist(); refresh();
 
       const h=readSyncHistory();
       h.push({
@@ -243,7 +247,7 @@ const syncPreview=$("syncPreview");
   reader.readAsText(file);
 }
 
-function backup(){let data={version:"3.2.3",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.3.json";a.click()}
+function backup(){let data={version:"3.2.4",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.4.json";a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.store&&Array.isArray(x.store.tx)){store=x.store;stocks=Array.isArray(x.stocks)?x.stocks:[];}else if(Array.isArray(x)){store={tx:x};stocks=[]}else throw 0;persist();refresh();appAlert("Restore berhasil.","Restore berhasil")}catch(_){appAlert("File backup tidak valid.","Restore gagal")}};r.readAsText(f)}
 function clearAll(){
   appConfirm("Semua transaksi dan stok akan dihapus. Lanjutkan?","Hapus semua data").then(ok=>{
