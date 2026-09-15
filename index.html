@@ -15,7 +15,7 @@
   <div class="head">
     <div>
       <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.2.6</div>
+      <div class="version">V3.2.7</div>
       <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
     </div>
     <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
@@ -84,13 +84,14 @@
   <h2>Laporan</h2>
   <div class="panel">
     <div class="two">
-      <div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
-      <div><label>Bulan</label><input type="month" id="reportMonth" onchange="renderReport()"></div>
+      <div><label>Periode</label><select id="period"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
+      <div><label>Bulan</label><input type="month" id="reportMonth"></div>
     </div>
     <div class="two">
-      <div><label>Dari</label><input type="date" id="reportFrom" onchange="renderReport()"></div>
-      <div><label>Sampai</label><input type="date" id="reportTo" onchange="renderReport()"></div>
+      <div><label>Dari <span class="optional">(opsional)</span></label><input type="date" id="reportFrom"></div>
+      <div><label>Sampai <span class="optional">(opsional)</span></label><input type="date" id="reportTo"></div>
     </div>
+    <button class="primary applyReport" onclick="applyReportFilter()">✓ Terapkan</button>
     <div id="reportSummary"></div>
     <div class="actions"><button class="primary" onclick="printReport()">🖨 Cetak</button><button onclick="exportCSV()">📄 Export CSV</button></div>
   </div>
@@ -211,7 +212,7 @@
   </div>
 </div>
 
-<script src="app.js?v=3.2.6"></script>
+<script src="app.js?v=3.2.7"></script>
 <script>
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then(reg=>{

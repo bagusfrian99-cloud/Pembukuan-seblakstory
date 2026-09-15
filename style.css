@@ -23,3 +23,5 @@ table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px 9px
 
 .sync-preview{border-top:1px solid var(--line);padding-top:8px}.sync-preview .summary-row{padding:10px 0}.summary-row{display:flex;justify-content:space-between;gap:12px;align-items:center}.summary-row strong{font-size:17px}.pos-cash{color:#16844d;font-weight:800}.pos-noncash{color:#4058a8;font-weight:800}
 @media(max-width:750px){table{min-width:700px}.brand{line-height:1.25}}
+.optional{font-weight:400;color:#777;font-size:.85em}
+.applyReport{width:100%;padding:13px;border-radius:13px;margin:2px 0 14px}
