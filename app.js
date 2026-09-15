@@ -81,10 +81,42 @@ function refresh(){
   else if(id==="syncpos")renderSyncHistory();
 }
 function page(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="dashboard")renderDashboard();if(id==="transaksi")renderTransactions();if(id==="stok")renderStock();if(id==="laporan")renderReport();if(id==="backup")renderInfo();if(id==="syncpos")renderSyncHistory()}
-function openTx(id=null){$("modal").classList.add("show");$("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";$("editId").value=id||"";$("tDate").value=localDT();$("tName").value="";$("tAmount").value="";$("tNote").value="";$("tType").value="in";if(id){let x=store.tx.find(a=>a.id==id);if(x){$("tType").value=x.type;$("tDate").value=x.date;$("tName").value=x.name;$("tAmount").value=x.amount;$("tNote").value=x.note||""}}}
+function updateTxNameField(){
+  const isIncome=$("tType").value==="in";
+  $("incomeNameWrap").style.display=isIncome?"block":"none";
+  $("expenseNameWrap").style.display=isIncome?"none":"block";
+}
+function openTx(id=null){
+  $("modal").classList.add("show");
+  $("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";
+  $("editId").value=id||"";
+  $("tDate").value=localDT();
+  $("tIncomeName").value="Tunai";
+  $("tName").value="";
+  $("tAmount").value="";
+  $("tNote").value="";
+  $("tType").value="in";
+  if(id){
+    let x=store.tx.find(a=>a.id==id);
+    if(x){
+      $("tType").value=x.type;
+      $("tDate").value=x.date;
+      if(x.type==="in"){
+        $("tIncomeName").value=(x.name==="Non Tunai"||x.name==="Nontunai")?"Non Tunai":"Tunai";
+      }else{
+        $("tName").value=x.name||"";
+      }
+      $("tAmount").value=x.amount;
+      $("tNote").value=x.note||"";
+    }
+  }
+  updateTxNameField();
+}
 function closeModal(){$("modal").classList.remove("show")}
 function saveTx(){
-  let name=$("tName").value.trim(),amount=Number($("tAmount").value),id=$("editId").value;
+  const isIncome=$("tType").value==="in";
+  let name=isIncome ? $("tIncomeName").value : $("tName").value.trim();
+  let amount=Number($("tAmount").value),id=$("editId").value;
   if(!name||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
   const date=$("tDate").value||localDT();
   const old=id?store.tx.find(a=>a.id==id):null;
@@ -109,7 +141,7 @@ function saveTx(){
 
 function sum(a,t){return a.filter(x=>x.type===t).reduce((s,x)=>s+Number(x.amount||0),0)}
 function renderDashboard(){let d=today(),m=d.slice(0,7),td=store.tx.filter(x=>x.date.slice(0,10)===d),mo=store.tx.filter(x=>x.date.slice(0,7)===m);$("dSaldo").textContent=money(sum(store.tx,"in")-sum(store.tx,"out"));$("dIn").textContent=money(sum(td,"in"));$("dOut").textContent=money(sum(td,"out"));$("dCount").textContent=mo.length;$("recent").innerHTML=store.tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b><div class="buyinfo">${esc(x.date.replace("T"," "))}</div></span><b class="${x.type==="in"?"green":"red"}">${x.type==="in"?"+":"−"} ${money(x.amount)}</b></div>`).join("")||'<div class="empty">Belum ada transaksi.</div>'}
-function renderTransactions(){let q=($("search").value||"").toLowerCase(),ft=$("filterType").value,from=$("from").value,to=$("to").value;let r=store.tx.filter(x=>(!q||(x.name+" "+(x.note||"")).toLowerCase().includes(q))&&(!ft||x.type===ft)&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to)).sort((a,b)=>b.date.localeCompare(a.date));$("txTable").innerHTML=r.map(x=>`<tr><td>${esc(x.date.replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${money(x.amount)}</td><td><button class="actionBtn editdel" onclick="openTx(${x.id})">✏️ Edit</button> <button class="actionBtn danger" onclick="removeTx(${x.id})">🗑 Hapus</button></td></tr>`).join("")||'<tr><td colspan="6" class="empty">Belum ada transaksi.</td></tr>'}
+function renderTransactions(){let q=($("search").value||"").toLowerCase(),ft=$("filterType").value,from=$("from").value,to=$("to").value;let r=store.tx.filter(x=>(!q||(x.name+" "+(x.note||"")).toLowerCase().includes(q))&&(!ft||x.type===ft)&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to)).sort((a,b)=>b.date.localeCompare(a.date));$("txTable").innerHTML=r.map(x=>`<tr><td>${esc(x.date.replace("T"," "))}</td><td>${x.type==="in"?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${money(x.amount)}</td><td><button class="actionBtn editdel" onclick="openTx(${x.id})">✏️ Edit</button> <button class="actionBtn danger" onclick="removeTx(${x.id})">🗑 Hapus</button></td></tr>`).join("")||'<tr><td colspan="6" class="empty">Belum ada transaksi.</td></tr>'}
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
 function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sUnit").value="pcs";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sUnit").value=x.unit;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
 function closeStock(){$("stockModal").classList.remove("show")}
@@ -175,7 +207,7 @@ function renderReport(){
   ensureReportControls();
   let r=reportRows(),i=sum(r,"in"),o=sum(r,"out");
   $("reportSummary").innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;
-  $("reportTable").innerHTML=r.slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(x=>`<tr><td>${esc(String(x.date||"").replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${x.source==="POS_DAILY"?"POS":"Manual"}</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
+  $("reportTable").innerHTML=r.slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(x=>`<tr><td>${esc(String(x.date||"").replace("T"," "))}</td><td>${x.type==="in"?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="4" class="empty">Tidak ada data pada periode ini.</td></tr>';
 }
 function printReport(){window.print()}
 function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}

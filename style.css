@@ -17,7 +17,86 @@ table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px 9px
 .report{display:flex;justify-content:space-between;padding:8px 0}.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:18px;z-index:30}.modal.show{display:flex}.modalbox{background:#fff;border-radius:24px;padding:22px;width:min(520px,100%);max-height:90vh;overflow:auto;box-shadow:0 12px 50px #0005}.compact{width:min(420px,100%)}.modalbox h2{font-size:25px;margin-top:0}.info{background:#fff8cf;border-radius:12px;padding:12px;margin-bottom:10px}
 @media(max-width:750px){.brand{font-size:23px}.topbtn{min-width:120px;font-size:17px;padding:12px}.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.stockTools{grid-template-columns:1fr 125px}main{padding:14px}h2{font-size:27px}}
 @media(max-width:460px){.head{align-items:flex-start}.topbtn{min-width:110px}.grid{grid-template-columns:1fr}.brand{font-size:22px}nav button{padding:11px 17px}}
-@media print{header,.actions,.modal{display:none!important}.page{display:none!important}.page.active{display:block!important}.panel{box-shadow:none}}
+@page{
+  size:80mm auto;
+  margin:0;
+}
+@media print{
+  html,body{
+    width:80mm!important;
+    margin:0!important;
+    padding:0!important;
+    background:#fff!important;
+  }
+  header,.actions,.modal,.applyReport{
+    display:none!important;
+  }
+  main{
+    width:80mm!important;
+    max-width:80mm!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  .page{
+    display:none!important;
+  }
+  .page.active{
+    display:block!important;
+    width:80mm!important;
+    max-width:80mm!important;
+    margin:0!important;
+    padding:0!important;
+  }
+  .page.active>h2{
+    display:block!important;
+    font-size:16px!important;
+    text-align:center!important;
+    margin:6mm 2mm 3mm!important;
+  }
+  .page.active .panel{
+    width:100%!important;
+    max-width:100%!important;
+    margin:0!important;
+    padding:2mm!important;
+    border-radius:0!important;
+    box-shadow:none!important;
+    border:0!important;
+    overflow:visible!important;
+  }
+  .page.active .panel:first-of-type{
+    padding-top:0!important;
+  }
+  .page.active .panel:first-of-type .two,
+  .page.active .panel:first-of-type .applyReport{
+    display:none!important;
+  }
+  #reportTable{
+    width:100%!important;
+    table-layout:fixed!important;
+    font-size:9px!important;
+  }
+  #reportTable th,#reportTable td{
+    padding:2mm 1mm!important;
+    word-break:break-word!important;
+    white-space:normal!important;
+  }
+  #reportTable th:nth-child(1),#reportTable td:nth-child(1){
+    width:25%!important;
+  }
+  #reportTable th:nth-child(2),#reportTable td:nth-child(2){
+    width:19%!important;
+  }
+  #reportTable th:nth-child(3),#reportTable td:nth-child(3){
+    width:31%!important;
+  }
+  #reportTable th:nth-child(4),#reportTable td:nth-child(4){
+    width:25%!important;
+    text-align:right!important;
+  }
+  #reportSummary{
+    font-size:11px!important;
+  }
+}
 
 .dialogbox{text-align:left}.dialogMessage{font-size:17px;line-height:1.55;margin:8px 0 18px;white-space:pre-line}.dialogbox .actions{justify-content:flex-end}.dialogbox .actions button{min-width:110px}
 
