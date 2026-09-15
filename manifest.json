@@ -1,13 +1,20 @@
 {
-  "name":"Pembukuan Seblak Story V3",
-  "short_name":"Pembukuan V3",
-  "description":"Pembukuan Seblak Story dengan transaksi, shift kasir, stok, laporan dan backup.",
-  "start_url":"./",
-  "scope":"./",
-  "display":"standalone",
-  "background_color":"#fffdf4",
-  "theme_color":"#f4c400",
-  "orientation":"portrait",
-  "lang":"id-ID",
-  "icons":[{"src":"icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "name": "Pembukuan Seblak Story",
+  "short_name": "Pembukuan",
+  "description": "Pembukuan keuangan dan stok sederhana Seblak Story.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#fffdf4",
+  "theme_color": "#f4c400",
+  "orientation": "portrait",
+  "lang": "id-ID",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
 }
