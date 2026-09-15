@@ -49,7 +49,7 @@ function appChoice(message,choices,title="Pilih Aksi"){
   });
 }
 function persist(){localStorage.setItem(KEY,JSON.stringify(store));localStorage.setItem(STOCK_KEY,JSON.stringify(stocks))}
-function page(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="dashboard")renderDashboard();if(id==="transaksi")renderTransactions();if(id==="stok")renderStock();if(id==="laporan")renderReport();if(id==="backup")renderInfo()}
+function page(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="dashboard")renderDashboard();if(id==="transaksi")renderTransactions();if(id==="stok")renderStock();if(id==="laporan")renderReport();if(id==="backup")renderInfo();if(id==="syncpos")renderSyncHistory()}
 function openTx(id=null){$("modal").classList.add("show");$("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";$("editId").value=id||"";$("tDate").value=localDT();$("tName").value="";$("tAmount").value="";$("tNote").value="";$("tType").value="in";if(id){let x=store.tx.find(a=>a.id==id);if(x){$("tType").value=x.type;$("tDate").value=x.date;$("tName").value=x.name;$("tAmount").value=x.amount;$("tNote").value=x.note||""}}}
 function closeModal(){$("modal").classList.remove("show")}
 function saveTx(){let name=$("tName").value.trim(),amount=Number($("tAmount").value),id=$("editId").value;if(!name||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");let x={id:id?Number(id):Date.now(),type:$("tType").value,date:$("tDate").value||localDT(),name,amount,note:$("tNote").value.trim()};if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);persist();closeModal();refresh()}
@@ -89,7 +89,140 @@ function reportRows(){let p=$("period").value,d=today(),r;if(p==="today")r=store
 function renderReport(){let r=reportRows(),i=sum(r,"in"),o=sum(r,"out");$("reportSummary").innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;$("reportTable").innerHTML=r.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${esc(x.date.replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>'}
 function printReport(){window.print()}
 function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
-function backup(){let data={version:"3.1.9",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.1.9.json";a.click()}
+
+
+const POS_SYNC_KEY="seblak_story_pos_sync_v2";
+
+function readSyncHistory(){
+  try{const x=JSON.parse(localStorage.getItem(POS_SYNC_KEY)||"[]");return Array.isArray(x)?x:[]}
+  catch(e){return[]}
+}
+function saveSyncHistory(h){localStorage.setItem(POS_SYNC_KEY,JSON.stringify(h))}
+function renderSyncHistory(){
+  const el=$("syncHistory"); if(!el)return;
+  const h=readSyncHistory();
+  el.innerHTML=h.length?h.slice().reverse().slice(0,10).map(x=>`
+    <div class="buyrow">
+      <span><b>${esc(x.file||"Backup POS")}</b><div class="buyinfo">${esc(x.date||"")}</div></span>
+      <span>${x.imported||0} penjualan • ${x.expenses||0} pengeluaran • ${x.skipped||0} duplikat</span>
+    </div>`).join(""):'<div class="empty">Belum ada riwayat.</div>';
+}
+function posBackupPayload(root){
+  if(!root || root.app!=="Seblak Story POS" || !root.data) throw new Error("File bukan Backup JSON Seblak Story POS.");
+  const decode=(key)=>{
+    const v=root.data[key];
+    if(v==null)return [];
+    if(Array.isArray(v))return v;
+    if(typeof v==="string"){
+      try{const x=JSON.parse(v);return Array.isArray(x)?x:[]}
+      catch(e){throw new Error("Data "+key+" pada backup POS tidak valid.")}
+    }
+    return [];
+  };
+  return {
+    transactions:decode("ss_tx"),
+    expenses:decode("expenses"),
+    products:decode("ss_products"),
+    exportedAt:root.exportedAt||null,
+    appVersion:root.appVersion||null
+  };
+}
+function posDate(x){
+  const v=x?.createdAt||x?.date||x?.tanggal||x?.time;
+  if(!v)return localDT();
+  const d=new Date(v);
+  if(!Number.isNaN(d.getTime())){
+    d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
+    return d.toISOString().slice(0,16);
+  }
+  return localDT();
+}
+function posAmount(x){
+  return Number(x?.total??x?.amount??x?.nominal??0)||0;
+}
+function posMethod(x){
+  return x?.method||x?.paymentMethod||"POS";
+}
+function importPOSBackup(e){
+  const file=e.target.files?.[0]; if(!file)return;
+  const status=$("syncStatus");
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const p=posBackupPayload(JSON.parse(reader.result));
+      let imported=0, skipped=0, expImported=0, expSkipped=0;
+
+      // Existing imported POS transaction IDs are kept separately from manual transactions.
+      const existingIds=new Set(
+        store.tx.filter(x=>x.source==="POS").map(x=>String(x.sourceId))
+      );
+      (p.transactions||[]).forEach((x,i)=>{
+        const sid=String(x?.id||x?.transactionId||x?.trxId||("POS-"+i));
+        if(existingIds.has(sid)){skipped++;return}
+        const amount=posAmount(x);
+        if(amount<=0)return;
+        store.tx.push({
+          id:"POS-"+sid,
+          source:"POS",
+          sourceId:sid,
+          type:"in",
+          date:posDate(x),
+          name:`Penjualan POS ${sid}`,
+          amount:amount,
+          note:`Metode: ${posMethod(x)}${x?.channel?` • ${x.channel}`:""}`
+        });
+        existingIds.add(sid);
+        imported++;
+      });
+
+      const existingExp=new Set(
+        store.tx.filter(x=>x.source==="POS_EXPENSE").map(x=>String(x.sourceId))
+      );
+      (p.expenses||[]).forEach((x,i)=>{
+        const sid=String(x?.id||x?.expenseId||x?.createdAt||("POS-EXP-"+i));
+        if(existingExp.has(sid)){expSkipped++;return}
+        const amount=posAmount(x);
+        if(amount<=0)return;
+        store.tx.push({
+          id:"POSEXP-"+sid,
+          source:"POS_EXPENSE",
+          sourceId:sid,
+          type:"out",
+          date:posDate(x),
+          name:`Pengeluaran POS - ${x?.note||x?.description||x?.keterangan||"Pengeluaran"}`,
+          amount:amount,
+          note:"Dari Backup POS"
+        });
+        existingExp.add(sid);
+        expImported++;
+      });
+
+      persist();
+      refresh();
+      const h=readSyncHistory();
+      h.push({
+        file:file.name,
+        date:new Date().toLocaleString("id-ID"),
+        imported,
+        skipped:skipped+expSkipped,
+        expenses:expImported,
+        appVersion:p.appVersion
+      });
+      saveSyncHistory(h);
+      renderSyncHistory();
+
+      const msg=`Sinkronisasi selesai.\n\nPemasukan baru: ${imported}\nPengeluaran baru: ${expImported}\nDuplikat dilewati: ${skipped+expSkipped}`;
+      if(status)status.textContent=msg.replaceAll("\n"," • ");
+      appAlert(msg,"Sinkronisasi POS");
+    }catch(err){
+      if(status)status.textContent="Gagal: "+err.message;
+      appAlert(err.message,"Sinkronisasi gagal");
+    }finally{e.target.value=""}
+  };
+  reader.readAsText(file);
+}
+
+function backup(){let data={version:"3.2.1",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.1.json";a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.store&&Array.isArray(x.store.tx)){store=x.store;stocks=Array.isArray(x.stocks)?x.stocks:[];}else if(Array.isArray(x)){store={tx:x};stocks=[]}else throw 0;persist();refresh();appAlert("Restore berhasil.","Restore berhasil")}catch(_){appAlert("File backup tidak valid.","Restore gagal")}};r.readAsText(f)}
 function clearAll(){
   appConfirm("Semua transaksi dan stok akan dihapus. Lanjutkan?","Hapus semua data").then(ok=>{
@@ -104,5 +237,5 @@ function clearAll(){
   });
 }
 function renderInfo(){$("dataInfo").innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${stocks.length}</b> barang stok<br><small>Data tersimpan di browser/perangkat ini.</small>`}
-function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderInfo()}
+function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderInfo();renderSyncHistory()}
 $("reportMonth").value=today().slice(0,7);refresh();

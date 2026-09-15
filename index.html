@@ -15,7 +15,7 @@
   <div class="head">
     <div>
       <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.1.9</div>
+      <div class="version">V3.2.1</div>
       <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
     </div>
     <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
@@ -26,6 +26,7 @@
     <button class="active" onclick="page('stok',this)">Stok</button>
     <button onclick="page('laporan',this)">Laporan</button>
     <button onclick="page('backup',this)">Backup</button>
+  <button onclick="page('syncpos',this)">Sinkron POS</button>
   </nav>
 </header>
 
@@ -102,6 +103,31 @@
     <p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
     <div class="two"><input id="newCat" placeholder="Nama kategori"><button class="primary" onclick="addCategory()">Tambah</button></div>
     <div id="cats"></div>
+  </div>
+</section>
+
+
+<section id="syncpos" class="page">
+  <h2>Sinkronisasi POS</h2>
+  <div class="panel">
+    <h3>Import Backup POS</h3>
+    <p>Gunakan file <b>Backup JSON</b> dari Seblak Story POS. Pembukuan hanya mengambil transaksi dan pengeluaran POS yang belum pernah diimpor.</p>
+    <label class="btn primary fileBtn" style="display:inline-block;text-align:center">
+      📥 Pilih Backup POS
+      <input type="file" accept=".json,application/json" onchange="importPOSBackup(event)" style="display:none">
+    </label>
+    <div id="syncStatus" class="sub" style="margin-top:12px">Belum ada sinkronisasi.</div>
+  </div>
+  <div class="panel">
+    <h3>Aturan Sinkronisasi</h3>
+    <div class="summary-row"><span>Penjualan POS</span><strong>→ Pemasukan</strong></div>
+    <div class="summary-row"><span>Pengeluaran POS</span><strong>→ Pengeluaran</strong></div>
+    <div class="summary-row"><span>Transaksi yang sama</span><strong>Tidak digandakan</strong></div>
+    <p class="sub">Lakukan sinkronisasi setelah membuat backup POS terbaru. POS tidak perlu diubah.</p>
+  </div>
+  <div class="panel">
+    <h3>Riwayat Sinkronisasi</h3>
+    <div id="syncHistory"><div class="empty">Belum ada riwayat.</div></div>
   </div>
 </section>
 
