@@ -1,81 +1,4 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f4c400"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Pembukuan Seblak Story">
-<link rel="manifest" href="manifest.json"><title>Pembukuan Seblak Story v3</title>
-<style>
-:root{--y:#f4c400;--y2:#ffd92e;--dark:#222;--bg:#fffdf4;--card:#fff;--green:#16844d;--red:#d33;--blue:#4267a5;--muted:#777;--line:#e8e4d8}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--dark);font-family:Arial,sans-serif}button,input,select,textarea{font:inherit}button{cursor:pointer}
-header{background:linear-gradient(135deg,var(--y),var(--y2));padding:14px 16px;position:sticky;top:0;z-index:5;box-shadow:0 2px 8px #0002}.head{max-width:1100px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}.brand{font-size:23px;font-weight:900}.sub{font-size:12px;color:#594d00;margin-top:3px}.version{display:inline-block;background:#222;color:#fff;border-radius:12px;padding:3px 7px;font-size:11px;margin-left:5px}
-nav{max-width:1100px;margin:auto;display:flex;overflow:auto;gap:7px;padding-top:12px}nav button{border:0;background:#ffffff99;padding:10px 14px;border-radius:22px;white-space:nowrap;font-weight:800}nav button.active{background:#222;color:#fff}
-main{max-width:1100px;margin:auto;padding:18px}.page{display:none}.page.active{display:block}h2{margin:4px 0 15px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}.three{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
-.card,.panel{background:var(--card);border-radius:18px;padding:16px;box-shadow:0 2px 12px #0001;margin-bottom:14px}.card small{color:var(--muted)}.value{font-size:22px;font-weight:900;margin-top:7px}.green{color:var(--green)}.red{color:var(--red)}.blue{color:var(--blue)}.muted{color:var(--muted)}
-input,select,textarea{width:100%;padding:12px;border:1px solid #ddd;border-radius:11px;margin:4px 0 10px;background:#fff}textarea{min-height:75px;resize:vertical}label{font-weight:700;display:block;margin-top:5px}.btn{border:0;border-radius:11px;padding:11px 14px;background:#eee;font-weight:800}.primary{background:var(--y)}.danger{background:#ffe1e1;color:#a00}.dark{background:#222;color:#fff}.success{background:#dff5e9;color:#126b3d}.actions{display:flex;gap:8px;flex-wrap:wrap}.actions .btn{flex:1;min-width:125px}
-table{width:100%;border-collapse:collapse}th,td{padding:9px 7px;border-bottom:1px solid var(--line);text-align:left;font-size:14px}th{background:#fff8cf}.right{text-align:right}.empty{text-align:center;color:#888;padding:25px}.badge{display:inline-block;padding:4px 8px;border-radius:10px;background:#eee;font-size:12px;font-weight:700}.report{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}
-.hero{display:flex;justify-content:space-between;align-items:center;gap:12px;background:linear-gradient(135deg,#fff6bd,#fff);border:1px solid #f1d95d}.hero .big{font-size:30px;font-weight:900}.quick{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.quick button{padding:15px 10px;border-radius:15px;border:0;font-weight:900;background:#fff;box-shadow:0 2px 10px #0001}
-.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:16px;z-index:20}.modal.show{display:flex}.modalbox{background:#fff;border-radius:20px;padding:18px;width:min(560px,100%);max-height:92vh;overflow:auto}.modalhead{display:flex;justify-content:space-between;align-items:center}.close{border:0;background:#eee;border-radius:50%;width:38px;height:38px;font-size:22px}
-.stock-low{background:#fff0c9}.stock-ok{background:#e8f7ed}
-canvas{width:100%;height:250px;background:#fff;border-radius:12px}.install{display:none}
-@media(max-width:800px){.grid{grid-template-columns:1fr 1fr}.two,.three{grid-template-columns:1fr}.quick{grid-template-columns:1fr 1fr}.brand{font-size:20px}}
-@media(max-width:430px){.grid{grid-template-columns:1fr}.head .btn{padding:9px}.sub{font-size:11px}main{padding:13px}th,td{font-size:12px;padding:7px 4px}}
-@media print{header,nav,.no-print{display:none!important}body{background:#fff}.page{display:none!important}.page.printable{display:block!important}.panel,.card{box-shadow:none}}
 
-.stock-v31-note{font-size:12px;color:#777}
-#stok .actions{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
-#stok .actions input,#stok .actions select{padding:10px;border:1px solid #ddd;border-radius:10px}
-@media(max-width:700px){#stok .actions{grid-template-columns:1fr 1fr}}
-</style></head>
-<body>
-<header><div class="head"><div><div class="brand">🌶️ Pembukuan Seblak Story <span class="version">V3.1</span></div><div class="sub">Pembukuan toko • data tersimpan di perangkat</div></div><button class="btn" onclick="openTx()">＋ Transaksi</button></div>
-<nav id="nav"><button class="active" onclick="page('dashboard',this)">Dashboard</button><button onclick="page('transaksi',this)">Transaksi</button><button onclick="page('stok',this)">Stok</button><button onclick="page('laporan',this)">Laporan</button><button onclick="page('kategori',this)">Kategori</button><button onclick="page('backup',this)">Backup</button></nav></header>
-<main>
-<section id="dashboard" class="page active"><h2>Dashboard</h2>
-<div class="panel hero"><div><div class="muted">Saldo berjalan</div><div class="big" id="dSaldo">Rp0</div><div class="muted">Ringkasan keuangan toko</div></div><button class="btn primary" onclick="openTx()">＋ Catat Transaksi</button></div>
-<div class="grid"><div class="card"><small>Pemasukan Hari Ini</small><div class="value green" id="dIn">Rp0</div></div><div class="card"><small>Pengeluaran Hari Ini</small><div class="value red" id="dOut">Rp0</div></div><div class="card"><small>Laba Bersih Hari Ini</small><div class="value" id="dProfit">Rp0</div></div></div>
-<div class="grid"><div class="card"><small>Transaksi Bulan Ini</small><div class="value" id="dCount">0</div></div><div class="card"><small>Piutang Belum Lunas</small><div class="value blue" id="dReceivable">Rp0</div></div><div class="card"><small>Hutang Belum Lunas</small><div class="value red" id="dPayable">Rp0</div></div><div class="card"><small>Stok Perlu Restock</small><div class="value" id="dLowStock">0</div></div></div>
-<div class="panel"><h3>Aksi Cepat</h3><div class="quick"><button onclick="openTx(null,'in')">➕ Pemasukan</button><button onclick="openTx(null,'out')">➖ Pengeluaran</button><button onclick="openCash('in')">💵 Kas Masuk</button><button onclick="openCash('out')">💸 Kas Keluar</button></div></div>
-<div class="two"><div class="panel"><h3>Grafik 7 Hari</h3><canvas id="chart" width="900" height="300"></canvas></div><div class="panel"><h3>Ringkasan Hari Ini</h3><div id="todaySummary"></div></div></div>
-<div class="panel"><h3>Transaksi Terbaru</h3><div id="recent"></div></div></section>
-
-<section id="transaksi" class="page"><h2>Transaksi</h2><div class="panel"><div class="two"><div><label>Cari</label><input id="search" placeholder="Cari nama/keterangan..." oninput="renderTransactions()"></div><div><label>Filter jenis</label><select id="filterType" onchange="renderTransactions()"><option value="">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select></div></div><div class="two"><div><label>Dari tanggal</label><input type="date" id="from" onchange="renderTransactions()"></div><div><label>Sampai tanggal</label><input type="date" id="to" onchange="renderTransactions()"></div></div></div><div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div></section>
-
-<section id="stok" class="page">
-<h2>Stok Bahan</h2>
-<div class="panel">
-  <div class="actions">
-    <input id="stockName" placeholder="Nama bahan" style="margin:0">
-    <select id="stockUnit" style="margin:0">
-      <option value="pcs">pcs</option><option value="kg">kg</option><option value="gram">gram</option>
-      <option value="liter">liter</option><option value="ml">ml</option><option value="bungkus">bungkus</option><option value="botol">botol</option>
-    </select>
-    <input id="stockPack" type="number" step="0.01" min="0.01" placeholder="Isi 1 pack" style="margin:0">
-    <input id="stockMin" type="number" step="0.01" min="0" placeholder="Stok minimum" style="margin:0">
-    <button class="btn primary" onclick="addStockV31()">Tambah</button>
-  </div>
-  <small class="muted">Stok utama dihitung dalam satuan barang. Saat beli, masukkan jumlah pack. Saat SO, cukup masukkan stok fisik.</small>
-</div>
-<div class="panel" style="overflow:auto">
-<table><thead><tr><th>Bahan</th><th>Stok</th><th>1 Pack</th><th>Min.</th><th>Status</th><th>Aksi</th></tr></thead>
-<tbody id="stockTable"></tbody></table>
-</div>
-<div class="panel">
-<h3>🛒 Daftar Barang yang Harus Dibeli</h3>
-<div id="purchaseListV31"></div>
-</div>
-</section>
-
-
-<section id="laporan" class="page"><h2>Laporan</h2><div class="panel"><div class="two"><div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">7 hari</option><option value="month" selected>Bulan</option><option value="custom">Custom</option></select></div><div><label>Bulan</label><input type="month" id="reportMonth" onchange="renderReport()"></div></div><div class="two"><div><label>Dari</label><input type="date" id="reportFrom" onchange="renderReport()"></div><div><label>Sampai</label><input type="date" id="reportTo" onchange="renderReport()"></div></div><div id="reportSummary"></div><div class="actions no-print"><button class="btn primary" onclick="printReport()">🖨 Cetak</button><button class="btn" onclick="exportCSV()">📄 Export CSV</button></div></div><div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div></section>
-
-<section id="kategori" class="page"><h2>Kategori</h2><div class="panel"><p class="muted">Kategori pemasukan/pengeluaran dapat ditambah sesuai kebutuhan toko.</p><div class="actions"><input id="newCat" placeholder="Nama kategori" style="margin:0"><button class="btn primary" onclick="addCategory()">Tambah</button></div><div id="cats"></div></div></section>
-<section id="backup" class="page"><h2>Backup & Restore</h2><div class="panel"><p>Backup mencakup transaksi, kategori, stok, serta piutang/hutang.</p><div class="actions"><button class="btn primary" onclick="backup()">⬇ Backup JSON</button><label class="btn" style="text-align:center">⬆ Restore JSON<input type="file" accept=".json" onchange="restore(event)" style="display:none"></label><button class="btn danger" onclick="clearAll()">Hapus Semua Data</button></div></div><div class="panel"><h3>Informasi Data</h3><div id="dataInfo"></div></div></section>
-</main>
-
-<div class="modal" id="modal"><div class="modalbox"><div class="modalhead"><h2 id="modalTitle">Tambah Transaksi</h2><button class="close" onclick="closeModal()">×</button></div><input type="hidden" id="editId"><label>Jenis</label><select id="tType"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select><label>Tanggal & waktu</label><input type="datetime-local" id="tDate"><label>Nama transaksi</label><input id="tName" placeholder="Contoh: Penjualan Seblak / Beli bahan"><label>Kategori</label><select id="tCat"></select><label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0"><label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea><div class="actions"><button class="btn primary" onclick="saveTx()">Simpan</button><button class="btn" onclick="closeModal()">Batal</button></div></div></div>
-<div class="modal" id="cashModal"><div class="modalbox"><div class="modalhead"><h2 id="cashTitle">Kas Masuk</h2><button class="close" onclick="closeCash()">×</button></div><input type="hidden" id="cashType"><label>Jumlah (Rp)</label><input id="cashAmount" type="number" inputmode="numeric" min="0" placeholder="0"><label>Keterangan</label><input id="cashNote" placeholder="Contoh: tambah uang kas"><div class="actions"><button class="btn primary" onclick="saveCash()">Simpan</button><button class="btn" onclick="closeCash()">Batal</button></div></div></div>
-
-<script>
 const KEY='seblak_story_bookkeeping_v3';
 const OLD=['seblak_story_full_bookkeeping_v1','seblak_story_bookkeeping_v2'];
 const defaultCats=['Penjualan','Modal','Bahan Baku','Gaji','Listrik','Air','Sewa','Transportasi','Operasional','Kas Masuk','Kas Keluar','Lainnya'];
@@ -112,7 +35,7 @@ function renderStock(){
       <td>
         <button class="btn" onclick="stockInV31(${i})">+ Beli</button>
         <button class="btn" onclick="stockSOV31(${i})">SO</button>
-       
+        <button class="btn danger" onclick="delStock(${i})">Hapus</button>
       </td>
     </tr>`;
   }).join(''):'<tr><td colspan="6" class="empty">Belum ada data stok.</td></tr>';
@@ -168,4 +91,3 @@ function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transak
 function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderCats();renderInfo()}
 $('reportMonth').value=today().slice(0,7);refresh();
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-</script></body></html>
