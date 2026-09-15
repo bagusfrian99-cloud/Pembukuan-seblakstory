@@ -1,10 +1,10 @@
 {
   "name": "Pembukuan Seblak Story",
   "short_name": "Pembukuan",
-  "description": "Pembukuan keuangan dan stok Seblak Story",
+  "description": "Pembukuan dan stok Seblak Story.",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#fffdf4",
+  "background_color": "#fffdf5",
   "theme_color": "#f4c400",
   "orientation": "portrait",
   "lang": "id-ID",

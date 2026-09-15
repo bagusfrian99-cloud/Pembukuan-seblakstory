@@ -1,146 +1,47 @@
-
-const KEY="seblak_story_full_bookkeeping_v1";
+const KEY="seblak_story_v314";
+const STOCK_KEY="seblak_story_stock_v314";
 const defaultCats=["Penjualan","Modal","Bahan Baku","Gaji","Listrik","Air","Sewa","Transportasi","Operasional","Lainnya"];
-let store=JSON.parse(localStorage.getItem(KEY)||"null")||{tx:[],cats:defaultCats};
-if(!Array.isArray(store.cats)||!store.cats.length)store.cats=defaultCats;
+let store=JSON.parse(localStorage.getItem(KEY)||"null")||{tx:[],cats:[...defaultCats]};
+let stocks=JSON.parse(localStorage.getItem(STOCK_KEY)||"[]");
+if(!Array.isArray(store.cats)||!store.cats.length)store.cats=[...defaultCats];
 const $=id=>document.getElementById(id);
-const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(n||0);
-const isoToday=()=>new Date().toISOString().slice(0,10);
+const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
+const today=()=>new Date().toISOString().slice(0,10);
 const localDT=()=>{let d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
-$("reportMonth").value=isoToday().slice(0,7);
-function persist(){localStorage.setItem(KEY,JSON.stringify(store))}
-function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
-function page(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="dashboard")renderDashboard();if(id==="transaksi")renderTransactions();if(id==="laporan")renderReport();if(id==="kategori")renderCats();if(id==="backup")renderInfo()}
-function openTx(id=null){
- $("modal").classList.add("show");$("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";
- $("editId").value=id||""; $("tDate").value=localDT();$("tName").value="";$("tAmount").value="";$("tNote").value="";$("tType").value="in";fillCats();
- if(id){let x=store.tx.find(a=>a.id==id);if(x){$("tType").value=x.type;$("tDate").value=x.date;$("tName").value=x.name;$("tCat").value=x.cat;$("tAmount").value=x.amount;$("tNote").value=x.note||""}}
-}
-function closeTx(){$("modal").classList.remove("show")}
+const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
+function persist(){localStorage.setItem(KEY,JSON.stringify(store));localStorage.setItem(STOCK_KEY,JSON.stringify(stocks))}
+function page(id,btn){document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");if(id==="dashboard")renderDashboard();if(id==="transaksi")renderTransactions();if(id==="stok")renderStock();if(id==="laporan")renderReport();if(id==="kategori")renderCats();if(id==="backup")renderInfo()}
+function openTx(id=null){$("modal").classList.add("show");$("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";$("editId").value=id||"";$("tDate").value=localDT();$("tName").value="";$("tAmount").value="";$("tNote").value="";$("tType").value="in";fillCats();if(id){let x=store.tx.find(a=>a.id==id);if(x){$("tType").value=x.type;$("tDate").value=x.date;$("tName").value=x.name;$("tCat").value=x.cat;$("tAmount").value=x.amount;$("tNote").value=x.note||""}}}
+function closeModal(){$("modal").classList.remove("show")}
 function fillCats(){$("tCat").innerHTML=store.cats.map(c=>`<option>${esc(c)}</option>`).join("")}
-function saveTx(){
- let name=$("tName").value.trim(),amount=Number($("tAmount").value);
- if(!name||amount<=0)return alert("Nama transaksi dan jumlah wajib diisi.");
- let obj={id:$("editId").value||Date.now(),type:$("tType").value,date:$("tDate").value||localDT(),name,cat:$("tCat").value,amount,note:$("tNote").value.trim()};
- let i=store.tx.findIndex(x=>x.id==obj.id);if(i>=0)store.tx[i]=obj;else store.tx.push(obj);
- persist();closeTx();refresh();
-}
+function saveTx(){let name=$("tName").value.trim(),amount=Number($("tAmount").value),id=$("editId").value;if(!name||amount<=0)return alert("Nama transaksi dan jumlah wajib diisi.");let x={id:id?Number(id):Date.now(),type:$("tType").value,date:$("tDate").value||localDT(),name,cat:$("tCat").value,amount,note:$("tNote").value.trim()};if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);persist();closeModal();refresh()}
+function sum(a,t){return a.filter(x=>x.type===t).reduce((s,x)=>s+Number(x.amount||0),0)}
+function renderDashboard(){let d=today(),m=d.slice(0,7),td=store.tx.filter(x=>x.date.slice(0,10)===d),mo=store.tx.filter(x=>x.date.slice(0,7)===m);$("dSaldo").textContent=money(sum(store.tx,"in")-sum(store.tx,"out"));$("dIn").textContent=money(sum(td,"in"));$("dOut").textContent=money(sum(td,"out"));$("dCount").textContent=mo.length;$("recent").innerHTML=store.tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b><div class="buyinfo">${esc(x.date.replace("T"," "))} • ${esc(x.cat)}</div></span><b class="${x.type==="in"?"green":"red"}">${x.type==="in"?"+":"−"} ${money(x.amount)}</b></div>`).join("")||'<div class="empty">Belum ada transaksi.</div>'}
+function renderTransactions(){let q=($("search").value||"").toLowerCase(),ft=$("filterType").value,from=$("from").value,to=$("to").value;let r=store.tx.filter(x=>(!q||(x.name+" "+(x.note||"")).toLowerCase().includes(q))&&(!ft||x.type===ft)&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to)).sort((a,b)=>b.date.localeCompare(a.date));$("txTable").innerHTML=r.map(x=>`<tr><td>${esc(x.date.replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td>${money(x.amount)}</td><td><button class="actionBtn editdel" onclick="openTx(${x.id})">✏️ Edit</button> <button class="actionBtn danger" onclick="removeTx(${x.id})">🗑 Hapus</button></td></tr>`).join("")||'<tr><td colspan="6" class="empty">Belum ada transaksi.</td></tr>'}
 function removeTx(id){if(confirm("Hapus transaksi ini?")){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}}
-function filteredTx(){
- let q=($("search")?.value||"").toLowerCase(),ft=$("filterType")?.value||"",f=$("from")?.value||"",t=$("to")?.value||"";
- return store.tx.filter(x=>(!q||(x.name+" "+x.note+" "+x.cat).toLowerCase().includes(q))&&(!ft||x.type===ft)&&(!f||x.date.slice(0,10)>=f)&&(!t||x.date.slice(0,10)<=t)).sort((a,b)=>b.date.localeCompare(a.date));
-}
-function renderTransactions(){
- let r=filteredTx();
- $("txTable").innerHTML=r.length?r.map(x=>`<tr><td>${x.date.replace("T"," ")}</td><td><span class="badge">${x.type==="in"?"Pemasukan":"Pengeluaran"}</span></td><td><b>${esc(x.name)}</b><br><small>${esc(x.note||"")}</small></td><td>${esc(x.cat)}</td><td class="right ${x.type==="in"?"green":"red"}">${x.type==="in"?"+":"−"} ${money(x.amount)}</td><td><button class="btn" onclick="openTx(${x.id})">Edit</button> <button class="btn danger" onclick="removeTx(${x.id})">Hapus</button></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Belum ada transaksi.</td></tr>';
-}
-function sum(r,type){return r.filter(x=>x.type===type).reduce((s,x)=>s+x.amount,0)}
-function renderDashboard(){
- let d=isoToday(),month=d.slice(0,7),i=sum(store.tx,"in"),o=sum(store.tx,"out"),today=store.tx.filter(x=>x.date.slice(0,10)===d),m=store.tx.filter(x=>x.date.slice(0,7)===month);
- $("dSaldo").textContent=money(i-o);$("dInToday").textContent=money(sum(today,"in"));$("dOutToday").textContent=money(sum(today,"out"));$("dCount").textContent=m.length;
- $("recent").innerHTML=store.tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).map(x=>`<div class="tx"><span><b>${esc(x.name)}</b><br><small>${x.date.replace("T"," ")} • ${esc(x.cat)}</small></span><b class="${x.type==="in"?"green":"red"}">${x.type==="in"?"+":"−"} ${money(x.amount)}</b></div>`).join("")||'<div class="empty">Belum ada transaksi.</div>';
- drawChart();
- $("monthSummary").innerHTML=`<div class="report"><b>Pemasukan</b><span class="green">${money(sum(m,"in"))}</span></div><div class="report"><b>Pengeluaran</b><span class="red">${money(sum(m,"out"))}</span></div><div class="report"><b>Selisih</b><b>${money(sum(m,"in")-sum(m,"out"))}</b></div>`;
-}
-function drawChart(){
- let c=$("chart"),ctx=c.getContext("2d"),w=c.width=c.clientWidth*2,h=c.height=300,days=[];
- for(let k=6;k>=0;k--){let d=new Date();d.setDate(d.getDate()-k);days.push(d.toISOString().slice(0,10))}
- let ins=days.map(d=>sum(store.tx.filter(x=>x.date.slice(0,10)===d),"in")),outs=days.map(d=>sum(store.tx.filter(x=>x.date.slice(0,10)===d),"out")),max=Math.max(1,...ins,...outs);
- ctx.clearRect(0,0,w,h);let p=45,gw=w-p*2,gh=h-65;
- ctx.strokeStyle="#ddd";ctx.fillStyle="#555";ctx.font="22px Arial";ctx.textAlign="center";
- for(let j=0;j<7;j++){let x=p+gw*j/6;ctx.beginPath();ctx.moveTo(x,p);ctx.lineTo(x,h-40);ctx.stroke();ctx.fillText(days[j].slice(5),x,h-12)}
- function bars(vals,offset){ctx.fillStyle=offset?"#d33":"#16844d";vals.forEach((v,j)=>{let x=p+gw*j/6-12+offset*12,y=h-40-(v/max)*gh;ctx.fillRect(x,y,10,(v/max)*gh)})}
- bars(ins,0);bars(outs,1);
-}
-function getReportRows(){
- let p=$("period").value,d=isoToday(),r=[];
- if(p==="today")r=store.tx.filter(x=>x.date.slice(0,10)===d);
- else if(p==="week"){let s=new Date();s.setDate(s.getDate()-6);let a=s.toISOString().slice(0,10);r=store.tx.filter(x=>x.date.slice(0,10)>=a&&x.date.slice(0,10)<=d)}
- else if(p==="month"){let m=$("reportMonth").value||d.slice(0,7);r=store.tx.filter(x=>x.date.slice(0,7)===m)}
- else {let f=$("reportFrom").value,t=$("reportTo").value;r=store.tx.filter(x=>(!f||x.date.slice(0,10)>=f)&&(!t||x.date.slice(0,10)<=t))}
- return r.sort((a,b)=>a.date.localeCompare(b.date))
-}
-function renderReport(){
- let r=getReportRows(),i=sum(r,"in"),o=sum(r,"out");
- $("reportSummary").innerHTML=`<div class="grid"><div class="card"><small>Pemasukan</small><div class="value green">${money(i)}</div></div><div class="card"><small>Pengeluaran</small><div class="value red">${money(o)}</div></div><div class="card"><small>Selisih</small><div class="value">${money(i-o)}</div></div><div class="card"><small>Jumlah Transaksi</small><div class="value">${r.length}</div></div></div>`;
- $("reportTable").innerHTML=r.map(x=>`<tr><td>${x.date.replace("T"," ")}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td class="right">${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
-}
-function printReport(){document.querySelector(".page.active")?.classList.add("printable");window.print();document.querySelector(".page.active")?.classList.remove("printable")}
-function exportCSV(){
- let r=getReportRows(),rows=[["Tanggal","Jenis","Nama","Kategori","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.cat,x.amount,x.note||""])];
- let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n"),a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click();
-}
-function renderCats(){$("cats").innerHTML=store.cats.map((c,i)=>`<div class="tx"><span>${esc(c)}</span><button class="btn danger" onclick="delCat(${i})">Hapus</button></div>`).join("")}
+function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sUnit").value="pcs";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sUnit").value=x.unit;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
+function closeStock(){$("stockModal").classList.remove("show")}
+function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),unit=$("sUnit").value.trim()||"pcs",pack=Number($("sPack").value),min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return alert("Lengkapi nama, isi/pack, minimum, dan stok.");let x={id:id?Number(id):Date.now(),name,unit,pack,min,qty,lastSO:id?(stocks.find(a=>a.id==id)?.lastSO??qty):qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
+function stockStatus(x){return x.qty<=x.min?'<span class="status low">Perlu beli</span>':'<span class="status safe">Aman</span>'}
+function openSO(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("soModal").classList.add("show");$("soId").value=id;$("soLabel").textContent=`Hasil Stock Opname ${x.name} (${x.unit}):`;$("soQty").value=x.qty}
+function closeSO(){$("soModal").classList.remove("show")}
+function saveSO(){let id=Number($("soId").value),qty=Number($("soQty").value);if(qty<0)return alert("Stok tidak boleh negatif.");stocks=stocks.map(x=>x.id===id?{...x,qty,lastSO:qty}:x);persist();closeSO();renderStock()}
+function openBuy(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("buyModal").classList.add("show");$("buyId").value=id;$("buyPack").value=1;$("buyLabel").textContent=`Beli ${x.name}`;$("buyInfo").textContent=`1 pack = ${x.pack} ${x.unit}. Stok sekarang: ${x.qty} ${x.unit}.`}
+function closeBuy(){$("buyModal").classList.remove("show")}
+function saveBuy(){let id=Number($("buyId").value),packs=Number($("buyPack").value),x=stocks.find(a=>a.id===id);if(!x||packs<=0)return alert("Jumlah pack harus lebih dari 0.");x.qty+=packs*x.pack;persist();closeBuy();renderStock()}
+function openEditDelete(id){let x=stocks.find(a=>a.id==id);if(!x)return;let choice=prompt(`Pilih aksi untuk ${x.name}:\n1 = Edit\n2 = Hapus`,"1");if(choice==="1")openStock(id);if(choice==="2")deleteStock(id)}
+function deleteStock(id){let x=stocks.find(a=>a.id==id);if(x&&confirm(`Hapus stok "${x.name}"?`)){stocks=stocks.filter(a=>a.id!==id);persist();renderStock()}}
+function renderStock(){let q=($("stockSearch").value||"").toLowerCase();let r=stocks.filter(x=>x.name.toLowerCase().includes(q));$("stockTable").innerHTML=r.map(x=>`<tr><td>${esc(x.name)}<div class="buyinfo">SO terakhir: ${x.lastSO??x.qty} ${esc(x.unit)}</div></td><td>${x.qty} ${esc(x.unit)}</td><td>${x.pack} ${esc(x.unit)}</td><td>${x.min} ${esc(x.unit)}</td><td>${stockStatus(x)}</td><td><button class="actionBtn buy" onclick="openBuy(${x.id})">🛒 Beli</button></td><td><button class="actionBtn editdel" onclick="openEditDelete(${x.id})">⚙️ Edit/Hapus</button><br><button class="actionBtn primary" onclick="openSO(${x.id})">SO</button></td></tr>`).join("")||'<tr><td colspan="7" class="empty">Belum ada stok.</td></tr>';let needs=stocks.filter(x=>x.qty<=x.min);$("buyList").innerHTML=needs.map(x=>{let deficit=Math.max(0,x.min-x.qty),packs=Math.max(1,Math.ceil(deficit/x.pack));return `<div class="buyrow"><span><b>${esc(x.name)}</b><div class="buyinfo">Sisa SO: ${x.qty} ${esc(x.unit)} • Minimum: ${x.min} ${esc(x.unit)}</div></span><span class="buyqty">${packs} pack</span></div>`}).join("")||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>'}
 function addCategory(){let c=$("newCat").value.trim();if(!c)return;if(store.cats.includes(c))return alert("Kategori sudah ada.");store.cats.push(c);$("newCat").value="";persist();renderCats();fillCats()}
-function delCat(i){if(store.cats.length<=1)return alert("Minimal harus ada satu kategori.");if(confirm("Hapus kategori ini? Transaksi lama tetap tersimpan.")){store.cats.splice(i,1);persist();renderCats();fillCats()}}
-function backup(){let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(store,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story.json";a.click()}
-function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x||!Array.isArray(x.tx)||!Array.isArray(x.cats))throw 0;store=x;persist();refresh();alert("Restore berhasil.")}catch(_){alert("File backup tidak valid.")}};r.readAsText(f)}
-function clearAll(){if(confirm("Semua transaksi dan kategori akan dihapus. Lanjutkan?")){localStorage.removeItem(KEY);store={tx:[],cats:defaultCats};refresh()}}
-function renderInfo(){$("dataInfo").innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.cats.length}</b> kategori<br><small>Data tersimpan di browser/perangkat ini.</small>`}
-function refresh(){renderDashboard();renderTransactions();renderReport();renderCats();renderInfo()}
-refresh();
-
-
-/* ===== Seblak Story Bookkeeping v2 enhancements ===== */
-const AUTO_BACKUP_KEY = "seblak_story_last_auto_backup_v2";
-
-function toast(msg){
-  let t=document.querySelector(".toast");
-  if(!t){t=document.createElement("div");t.className="toast";document.body.appendChild(t);}
-  t.textContent=msg;t.classList.add("show");
-  clearTimeout(window.__toastTimer);window.__toastTimer=setTimeout(()=>t.classList.remove("show"),2200);
-}
-
-function quickExpense(){
-  openTx();
-  setTimeout(()=>{
-    const el=document.getElementById("tType");
-    if(el) el.value="out";
-  },0);
-}
-
-function exportXLSX(){
-  const rows=getReportRows().map(x=>({
-    "Tanggal":x.date,
-    "Jenis":x.type==="in"?"Pemasukan":"Pengeluaran",
-    "Nama":x.name,
-    "Kategori":x.cat,
-    "Jumlah":x.amount,
-    "Keterangan":x.note||""
-  }));
-  if(!rows.length){alert("Tidak ada data untuk diekspor.");return;}
-  if(typeof XLSX==="undefined"){
-    alert("Fitur Excel membutuhkan koneksi internet saat pertama kali mengekspor. Gunakan Export CSV jika sedang offline.");
-    return;
-  }
-  const ws=XLSX.utils.json_to_sheet(rows);
-  const wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,"Transaksi");
-  XLSX.writeFile(wb,"Laporan-Pembukuan-Seblak-Story.xlsx");
-  toast("File Excel berhasil dibuat");
-}
-
-/* Automatic local safety snapshot. This does not upload data anywhere. */
-function autoBackupLocal(){
-  try{
-    const payload=JSON.stringify(store);
-    localStorage.setItem(AUTO_BACKUP_KEY, payload);
-  }catch(e){}
-}
-const oldPersist = persist;
-persist = function(){
-  oldPersist();
-  autoBackupLocal();
-};
-
-function restoreLocalSnapshot(){
-  const raw=localStorage.getItem(AUTO_BACKUP_KEY);
-  if(!raw)return false;
-  try{
-    const x=JSON.parse(raw);
-    if(x && Array.isArray(x.tx) && Array.isArray(x.cats)){
-      store=x;persist();refresh();toast("Snapshot lokal dipulihkan");return true;
-    }
-  }catch(e){}
-  return false;
-}
+function delCat(i){if(store.cats.length<=1)return;if(confirm("Hapus kategori ini?")){store.cats.splice(i,1);persist();renderCats();fillCats()}}
+function renderCats(){$("cats").innerHTML=store.cats.map((c,i)=>`<div class="buyrow"><b>${esc(c)}</b><button class="actionBtn danger" onclick="delCat(${i})">Hapus</button></div>`).join("")}
+function reportRows(){let p=$("period").value,d=today(),r;if(p==="today")r=store.tx.filter(x=>x.date.slice(0,10)===d);else if(p==="week"){let cut=new Date();cut.setDate(cut.getDate()-6);let s=cut.toISOString().slice(0,10);r=store.tx.filter(x=>x.date.slice(0,10)>=s&&x.date.slice(0,10)<=d)}else if(p==="month"){let m=$("reportMonth").value||d.slice(0,7);r=store.tx.filter(x=>x.date.slice(0,7)===m)}else{let f=$("reportFrom").value,t=$("reportTo").value;r=store.tx.filter(x=>(!f||x.date.slice(0,10)>=f)&&(!t||x.date.slice(0,10)<=t))}return r}
+function renderReport(){let r=reportRows(),i=sum(r,"in"),o=sum(r,"out");$("reportSummary").innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;$("reportTable").innerHTML=r.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(x=>`<tr><td>${esc(x.date.replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>'}
+function printReport(){window.print()}
+function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Kategori","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.cat,x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
+function backup(){let data={version:"3.1.4",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.1.4.json";a.click()}
+function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.store&&Array.isArray(x.store.tx)){store=x.store;stocks=Array.isArray(x.stocks)?x.stocks:[];}else if(Array.isArray(x)){store={tx:x,cats:[...defaultCats]};stocks=[]}else throw 0;persist();refresh();alert("Restore berhasil.")}catch(_){alert("File backup tidak valid.")}};r.readAsText(f)}
+function clearAll(){if(confirm("Semua transaksi, kategori, dan stok akan dihapus. Lanjutkan?")){localStorage.removeItem(KEY);localStorage.removeItem(STOCK_KEY);store={tx:[],cats:[...defaultCats]};stocks=[];refresh()}}
+function renderInfo(){$("dataInfo").innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.cats.length}</b> kategori<br><b>${stocks.length}</b> barang stok<br><small>Data tersimpan di browser/perangkat ini.</small>`}
+function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderCats();renderInfo()}
+$("reportMonth").value=today().slice(0,7);fillCats();refresh();

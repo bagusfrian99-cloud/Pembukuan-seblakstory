@@ -5,374 +5,172 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#f4c400">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Pembukuan Seblak Story">
 <link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="style.css">
 <title>Pembukuan Seblak Story</title>
-<style>
-:root{--y:#f4c400;--y2:#ffd92e;--dark:#222;--bg:#fffdf4;--card:#fff;--green:#16844d;--red:#d33;--muted:#777}
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--dark);font-family:Arial,sans-serif}
-header{background:linear-gradient(135deg,var(--y),var(--y2));padding:18px 16px 14px;position:sticky;top:0;z-index:5;box-shadow:0 2px 9px #0002}
-.head{max-width:1000px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
-.brand{font-size:23px;font-weight:800;line-height:1.2}
-.sub{font-size:13px;color:#594d00;margin-top:5px}
-.version{display:inline-block;background:#222;color:#fff;border-radius:14px;padding:4px 9px;font-size:12px;margin-top:7px}
-.topbtn{border:0;background:#eee;color:#222;border-radius:18px;padding:15px 18px;font-weight:800;font-size:16px;min-width:125px}
-nav{max-width:1000px;margin:auto;display:flex;overflow-x:auto;gap:8px;padding-top:14px;scrollbar-width:none}
-nav::-webkit-scrollbar{display:none}
-nav button{border:0;background:#ffffff99;padding:12px 17px;border-radius:24px;white-space:nowrap;font-weight:800;font-size:15px}
-nav button.active{background:#222;color:#fff}
-main{max-width:1000px;margin:auto;padding:18px 16px 40px}
-.page{display:none}.page.active{display:block}
-h2{margin:5px 0 18px;font-size:28px}
-h3{margin-top:0}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.card,.panel{background:var(--card);border-radius:18px;padding:17px;box-shadow:0 3px 15px #0001;margin-bottom:14px}
-.card small{color:var(--muted);font-weight:700}
-.value{font-size:22px;font-weight:800;margin-top:9px}
-.green{color:var(--green)}.red{color:var(--red)}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-input,select,textarea,button{font:inherit}
-input,select,textarea{width:100%;padding:13px;border:1px solid #ddd;border-radius:12px;margin:5px 0 12px;background:#fff}
-textarea{min-height:75px;resize:vertical}
-.btn{border:0;border-radius:12px;padding:11px 14px;background:#eee;font-weight:800;cursor:pointer}
-.primary{background:var(--y)}.danger{background:#ffe2e2;color:#a00}
-.actions{display:flex;gap:8px;flex-wrap:wrap}.actions .btn{flex:1;min-width:115px}
-table{width:100%;border-collapse:collapse}
-th,td{padding:10px 7px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
-th{background:#fff8cf}.right{text-align:right}
-.empty{text-align:center;color:#888;padding:25px}
-.badge{display:inline-block;padding:4px 8px;border-radius:10px;background:#eee;font-size:12px}
-.tx{display:flex;justify-content:space-between;gap:8px;padding:12px 0;border-bottom:1px solid #eee}
-.tx small{color:#888}
-canvas{width:100%;height:240px;border-radius:12px;background:#fff}
-.stock-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px}
-.stock-search{margin-bottom:12px}
-.stock-table-wrap{overflow:auto}
-.stock-status{display:inline-block;padding:5px 9px;border-radius:10px;background:#fff4cf;font-size:12px;font-weight:800}
-.stock-status.ok{background:#ddf4e7;color:#176b42}.stock-status.low{background:#ffe2e2;color:#a00}
-.buy-list{margin-top:8px}
-.buy-row{display:flex;justify-content:space-between;align-items:center;padding:13px 0;border-bottom:1px solid #eee;gap:12px}
-.buy-pack{font-size:18px;font-weight:900}
-.note{color:#777;font-size:13px;line-height:1.45}
-.modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:18px;z-index:20}
-.modal.show{display:flex}
-.modalbox{background:#fff;border-radius:26px;padding:24px;width:min(520px,100%);max-height:90vh;overflow:auto;box-shadow:0 15px 50px #0005}
-.modalbox h2{font-size:23px;margin:0 0 18px}
-.so-label{font-size:17px;font-weight:700}
-.so-input{font-size:28px;font-weight:800;border:0;border-bottom:2px solid #777;border-radius:0;padding:12px 4px;background:transparent}
-.modal-actions{display:flex;justify-content:flex-end;gap:28px;margin-top:18px}
-.text-btn{border:0;background:transparent;color:#4d628e;font-weight:800;font-size:16px;padding:10px 8px}
-.confirmbox{text-align:center;max-width:430px;padding:28px 24px}.confirm-icon{width:48px;height:48px;border-radius:50%;background:#fff4cf;color:#8a6b00;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:25px;font-weight:900}.confirmbox h2{margin:0 0 10px;font-size:23px}.confirm-message{font-size:16px;line-height:1.5;color:#555;white-space:pre-line}.confirm-ok{color:#16844d}.modal{backdrop-filter:blur(2px)}.modalbox{animation:modalIn .16s ease-out}@keyframes modalIn{from{opacity:0;transform:translateY(8px) scale(.98)}to{opacity:1;transform:none}}
-@media(max-width:750px){.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}th,td{font-size:12px;padding:8px 5px}}
-@media(max-width:480px){.brand{font-size:20px}.topbtn{min-width:105px;padding:13px 12px}.grid{grid-template-columns:1fr}.modalbox{border-radius:26px;padding:22px}.head{align-items:flex-start}}
-@media print{header,nav,.no-print{display:none!important}body{background:#fff}.page{display:none!important}.page.printable{display:block!important}.panel,.card{box-shadow:none}}
-</style>
 </head>
 <body>
 <header>
-<div class="head">
-  <div>
-    <div class="brand">🌶️ Pembukuan Seblak Story</div>
-    <div class="version">V3.1.3</div>
-    <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
+  <div class="head">
+    <div>
+      <div class="brand">🌶️ Pembukuan Seblak Story</div>
+      <div class="version">V3.1.4</div>
+      <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
+    </div>
+    <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
   </div>
-  <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
-</div>
-<nav>
-  <button class="active" onclick="page('dashboard',this)">Dashboard</button>
-  <button onclick="page('transaksi',this)">Transaksi</button>
-  <button onclick="page('stok',this)">Stok</button>
-  <button onclick="page('laporan',this)">Laporan</button>
-  <button onclick="page('kategori',this)">Kategori</button>
-  <button onclick="page('backup',this)">Backup</button>
-</nav>
+  <nav>
+    <button onclick="page('dashboard',this)">Dashboard</button>
+    <button onclick="page('transaksi',this)">Transaksi</button>
+    <button class="active" onclick="page('stok',this)">Stok</button>
+    <button onclick="page('laporan',this)">Laporan</button>
+    <button onclick="page('kategori',this)">Kategori</button>
+    <button onclick="page('backup',this)">Backup</button>
+  </nav>
 </header>
 
 <main>
-<section id="dashboard" class="page active">
-<h2>Dashboard</h2>
-<div class="grid">
- <div class="card"><small>Saldo</small><div class="value" id="dSaldo">Rp0</div></div>
- <div class="card"><small>Pemasukan Hari Ini</small><div class="value green" id="dInToday">Rp0</div></div>
- <div class="card"><small>Pengeluaran Hari Ini</small><div class="value red" id="dOutToday">Rp0</div></div>
- <div class="card"><small>Transaksi Bulan Ini</small><div class="value" id="dCount">0</div></div>
-</div>
-<div class="two">
- <div class="panel"><h3>Grafik 7 Hari</h3><canvas id="chart" width="900" height="300"></canvas></div>
- <div class="panel"><h3>Ringkasan Bulan</h3><div id="monthSummary"></div></div>
-</div>
-<div class="panel"><h3>Transaksi Terbaru</h3><div id="recent"></div></div>
+<section id="dashboard" class="page">
+  <h2>Dashboard</h2>
+  <div class="grid">
+    <div class="card"><small>Saldo</small><strong id="dSaldo">Rp0</strong></div>
+    <div class="card"><small>Pemasukan Hari Ini</small><strong class="green" id="dIn">Rp0</strong></div>
+    <div class="card"><small>Pengeluaran Hari Ini</small><strong class="red" id="dOut">Rp0</strong></div>
+    <div class="card"><small>Transaksi Bulan Ini</small><strong id="dCount">0</strong></div>
+  </div>
+  <div class="panel"><h3>Transaksi Terbaru</h3><div id="recent"></div></div>
 </section>
 
 <section id="transaksi" class="page">
-<h2>Transaksi</h2>
-<div class="panel">
-<div class="two">
- <div><label>Cari</label><input id="search" placeholder="Cari nama/keterangan..." oninput="renderTransactions()"></div>
- <div><label>Filter jenis</label><select id="filterType" onchange="renderTransactions()"><option value="">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select></div>
-</div>
-<div class="two">
- <div><label>Dari tanggal</label><input type="date" id="from" onchange="renderTransactions()"></div>
- <div><label>Sampai tanggal</label><input type="date" id="to" onchange="renderTransactions()"></div>
-</div>
-</div>
-<div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div>
+  <h2>Transaksi</h2>
+  <div class="panel">
+    <div class="two">
+      <div><label>Cari</label><input id="search" placeholder="Cari nama/keterangan..." oninput="renderTransactions()"></div>
+      <div><label>Filter jenis</label><select id="filterType" onchange="renderTransactions()"><option value="">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select></div>
+    </div>
+    <div class="two">
+      <div><label>Dari tanggal</label><input type="date" id="from" onchange="renderTransactions()"></div>
+      <div><label>Sampai tanggal</label><input type="date" id="to" onchange="renderTransactions()"></div>
+    </div>
+    <button class="primary big" onclick="openTx()">＋ Tambah Transaksi</button>
+  </div>
+  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div>
 </section>
 
-<section id="stok" class="page">
-<h2>Stok</h2>
-<div class="panel">
- <div class="stock-head">
-   <div>
-    <h3 style="margin-bottom:4px">Stok Barang</h3>
-    <div class="note">Stok utama dihitung dalam satuan barang. Saat beli, masukkan jumlah pack. Saat SO, cukup masukkan stok fisik.</div>
-   </div>
-   <button class="btn primary" onclick="openStock()">＋ Tambah</button>
- </div>
- <input class="stock-search" id="stockSearch" placeholder="🔎 Cari stok..." oninput="renderStock()">
- <div class="stock-table-wrap">
- <table><thead><tr><th>Barang</th><th>Stok</th><th>Isi/Pack</th><th>Min.</th><th>Status</th><th>Aksi</th></tr></thead>
- <tbody id="stockTable"></tbody></table>
- </div>
-</div>
-<div class="panel">
- <h3>🛒 Daftar Barang yang Harus Dibeli</h3>
- <div class="note">Otomatis dihitung dari hasil Stock Opname dan jumlah isi per pack.</div>
- <div id="buyList" class="buy-list"></div>
-</div>
+<section id="stok" class="page active">
+  <h2>Stok Barang</h2>
+  <div class="panel">
+    <div class="stockTools">
+      <input id="stockSearch" placeholder="🔍 Cari stok..." oninput="renderStock()">
+      <button class="primary" onclick="openStock()">＋ Tambah</button>
+    </div>
+    <p class="hint">Stok dihitung dalam satuan pcs/barang. Saat beli, masukkan jumlah <b>pack</b>. Saat SO, cukup masukkan stok fisik.</p>
+    <div class="scroll">
+      <table class="stockTable">
+        <thead><tr><th>Barang</th><th>Stok</th><th>Isi/Pack</th><th>Min.</th><th>Status</th><th>Beli</th><th>Aksi</th></tr></thead>
+        <tbody id="stockTable"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <h3>🛒 Daftar Barang yang Harus Dibeli</h3>
+    <p class="hint">Otomatis dihitung dari hasil Stock Opname dan jumlah isi per pack.</p>
+    <div id="buyList"></div>
+  </div>
 </section>
 
 <section id="laporan" class="page">
-<h2>Laporan</h2>
-<div class="panel">
-<div class="two">
- <div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">7 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
- <div><label>Bulan</label><input type="month" id="reportMonth" onchange="renderReport()"></div>
-</div>
-<div class="two">
- <div><label>Dari</label><input type="date" id="reportFrom" onchange="renderReport()"></div>
- <div><label>Sampai</label><input type="date" id="reportTo" onchange="renderReport()"></div>
-</div>
-<div id="reportSummary"></div>
-<div class="actions no-print"><button class="btn primary" onclick="printReport()">🖨 Cetak</button><button class="btn" onclick="exportCSV()">📄 Export CSV</button></div>
-</div>
-<div class="panel" style="overflow:auto"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th class="right">Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+  <h2>Laporan</h2>
+  <div class="panel">
+    <div class="two">
+      <div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">7 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
+      <div><label>Bulan</label><input type="month" id="reportMonth" onchange="renderReport()"></div>
+    </div>
+    <div class="two">
+      <div><label>Dari</label><input type="date" id="reportFrom" onchange="renderReport()"></div>
+      <div><label>Sampai</label><input type="date" id="reportTo" onchange="renderReport()"></div>
+    </div>
+    <div id="reportSummary"></div>
+    <div class="actions"><button class="primary" onclick="printReport()">🖨 Cetak</button><button onclick="exportCSV()">📄 Export CSV</button></div>
+  </div>
+  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
 </section>
 
 <section id="kategori" class="page">
-<h2>Kategori</h2>
-<div class="panel">
-<p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
-<div class="actions"><input id="newCat" placeholder="Nama kategori" style="margin:0"><button class="btn primary" onclick="addCategory()">Tambah</button></div>
-<div id="cats" style="margin-top:12px"></div>
-</div>
+  <h2>Kategori</h2>
+  <div class="panel">
+    <p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
+    <div class="two"><input id="newCat" placeholder="Nama kategori"><button class="primary" onclick="addCategory()">Tambah</button></div>
+    <div id="cats"></div>
+  </div>
 </section>
 
 <section id="backup" class="page">
-<h2>Backup & Restore</h2>
-<div class="panel">
-<p>Backup menyimpan transaksi, kategori, dan stok ke file JSON. File dapat dipindahkan ke HP lain lalu dipulihkan.</p>
-<div class="actions">
-<button class="btn primary" onclick="backup()">⬇ Backup Data</button>
-<label class="btn" style="text-align:center">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)" style="display:none"></label>
-<button class="btn danger" onclick="clearAll()">Hapus Semua Data</button>
-</div>
-</div>
-<div class="panel"><h3>Data</h3><div id="dataInfo"></div></div>
+  <h2>Backup & Restore</h2>
+  <div class="panel">
+    <p>Backup menyimpan transaksi, kategori, dan stok ke satu file JSON.</p>
+    <div class="actions">
+      <button class="primary" onclick="backup()">⬇ Backup Data</button>
+      <label class="fileBtn">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)"></label>
+      <button class="danger" onclick="clearAll()">Hapus Semua Data</button>
+    </div>
+  </div>
+  <div class="panel"><h3>Data</h3><div id="dataInfo"></div></div>
 </section>
 </main>
 
-<!-- Modal transaksi -->
-<div class="modal" id="txModal"><div class="modalbox">
-<h2 id="modalTitle">Tambah Transaksi</h2>
-<input type="hidden" id="editId">
-<label>Jenis</label><select id="tType"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select>
-<label>Tanggal & waktu</label><input type="datetime-local" id="tDate">
-<label>Nama transaksi</label><input id="tName" placeholder="Contoh: Penjualan Seblak / Beli bahan">
-<label>Kategori</label><select id="tCat"></select>
-<label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0">
-<label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea>
-<div class="actions"><button class="btn primary" onclick="saveTx()">Simpan</button><button class="btn" onclick="closeTx()">Batal</button></div>
-</div></div>
-
-<!-- Modal stok -->
-<div class="modal" id="stockModal"><div class="modalbox">
-<h2 id="stockModalTitle">Tambah Stok</h2>
-<input type="hidden" id="stockId">
-<label>Nama barang</label><input id="sName" placeholder="Contoh: Cikua">
-<label>Stok awal / stok tercatat (pcs)</label><input id="sStock" type="number" inputmode="numeric" min="0" value="0">
-<label>Isi 1 pack (pcs)</label><input id="sPack" type="number" inputmode="numeric" min="1" value="30">
-<label>Minimum stok (pcs)</label><input id="sMin" type="number" inputmode="numeric" min="0" value="5">
-<div class="actions"><button class="btn primary" onclick="saveStock()">Simpan</button><button class="btn" onclick="closeStock()">Batal</button></div>
-</div></div>
-
-<!-- Modal Stock Opname: custom, tidak memakai alert(), sehingga tidak menampilkan "domain menyatakan" -->
-<div class="modal" id="soModal"><div class="modalbox">
-<div class="so-label" id="soLabel">Hasil Stock Opname Cikua (pcs):</div>
-<input class="so-input" id="soValue" type="number" inputmode="numeric" min="0" value="0">
-<div class="modal-actions">
- <button class="text-btn" onclick="closeSO()">Batal</button>
- <button class="text-btn" onclick="saveSO()">Oke</button>
-</div>
-</div></div>
-
-<!-- Modal konfirmasi umum: semua konfirmasi aplikasi menggunakan modal ini, bukan popup browser -->
-<div class="modal" id="confirmModal">
- <div class="modalbox confirmbox">
-  <div class="confirm-icon">?</div>
-  <h2 id="confirmTitle">Konfirmasi</h2>
-  <div class="confirm-message" id="confirmMessage"></div>
-  <div class="modal-actions">
-   <button class="text-btn" onclick="closeConfirm(false)">Batal</button>
-   <button class="text-btn confirm-ok" onclick="closeConfirm(true)">Oke</button>
+<div class="modal" id="modal">
+  <div class="modalbox">
+    <h2 id="modalTitle">Tambah Transaksi</h2>
+    <input type="hidden" id="editId">
+    <label>Jenis</label><select id="tType"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select>
+    <label>Tanggal & waktu</label><input type="datetime-local" id="tDate">
+    <label>Nama transaksi</label><input id="tName" placeholder="Contoh: Penjualan Seblak / Beli bahan">
+    <label>Kategori</label><select id="tCat"></select>
+    <label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0">
+    <label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea>
+    <div class="actions"><button class="primary" onclick="saveTx()">Simpan</button><button onclick="closeModal()">Batal</button></div>
   </div>
- </div>
 </div>
 
-<script>
-const KEY="seblak_story_bookkeeping_v312";
-const defaultCats=["Penjualan","Modal","Bahan Baku","Gaji","Listrik","Air","Sewa","Transportasi","Operasional","Lainnya"];
-let store=JSON.parse(localStorage.getItem(KEY)||"null")||{tx:[],cats:defaultCats,stock:[]};
-if(!Array.isArray(store.cats)||!store.cats.length)store.cats=[...defaultCats];
-if(!Array.isArray(store.stock))store.stock=[];
-const $=id=>document.getElementById(id);
-const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(n||0);
-const isoToday=()=>{let d=new Date();return d.toISOString().slice(0,10)};
-const localDT=()=>{let d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
-const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
-let confirmCallback=null;
-function askConfirm(message,callback,title="Konfirmasi"){
- confirmCallback=callback;
- $("confirmTitle").textContent=title;
- $("confirmMessage").textContent=message;
- $("confirmModal").classList.add("show");
- setTimeout(()=>$("confirmModal").querySelector(".confirm-ok")?.focus(),50);
-}
-function closeConfirm(ok){
- $("confirmModal").classList.remove("show");
- const cb=confirmCallback;confirmCallback=null;
- if(ok&&typeof cb==="function")cb();
-}
-function persist(){localStorage.setItem(KEY,JSON.stringify(store))}
-function page(id,btn){
- document.querySelectorAll(".page").forEach(x=>x.classList.remove("active"));$(id).classList.add("active");
- document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));btn.classList.add("active");
- if(id==="dashboard")renderDashboard(); if(id==="transaksi")renderTransactions(); if(id==="stok")renderStock();
- if(id==="laporan")renderReport(); if(id==="kategori")renderCats(); if(id==="backup")renderInfo();
-}
-function fillCats(){$("tCat").innerHTML=store.cats.map(c=>`<option>${esc(c)}</option>`).join("")}
-function openTx(id=null){
- $("txModal").classList.add("show");$("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";
- $("editId").value=id||"";$("tDate").value=localDT();$("tName").value="";$("tAmount").value="";$("tNote").value="";$("tType").value="in";fillCats();
- if(id){let x=store.tx.find(a=>a.id==id);if(x){$("tType").value=x.type;$("tDate").value=x.date;$("tName").value=x.name;$("tCat").value=x.cat;$("tAmount").value=x.amount;$("tNote").value=x.note||""}}
-}
-function closeTx(){$("txModal").classList.remove("show")}
-function saveTx(){
- let name=$("tName").value.trim(),amount=Number($("tAmount").value);
- if(!name||amount<=0){$("tName").focus();return}
- let obj={id:$("editId").value||Date.now(),type:$("tType").value,date:$("tDate").value||localDT(),name,cat:$("tCat").value,amount,note:$("tNote").value.trim()};
- let i=store.tx.findIndex(x=>x.id==obj.id);if(i>=0)store.tx[i]=obj;else store.tx.push(obj);
- persist();closeTx();refresh();
-}
-function removeTx(id){askConfirm("Hapus transaksi ini?",()=>{store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()})}
-function filteredTx(){
- let q=($("search")?.value||"").toLowerCase(),ft=$("filterType")?.value||"",f=$("from")?.value||"",t=$("to")?.value||"";
- return store.tx.filter(x=>(!q||(x.name+" "+x.note+" "+x.cat).toLowerCase().includes(q))&&(!ft||x.type===ft)&&(!f||x.date.slice(0,10)>=f)&&(!t||x.date.slice(0,10)<=t)).sort((a,b)=>b.date.localeCompare(a.date))
-}
-function renderTransactions(){
- let r=filteredTx();$("txTable").innerHTML=r.length?r.map(x=>`<tr><td>${x.date.replace("T"," ")}</td><td><span class="badge">${x.type==="in"?"Pemasukan":"Pengeluaran"}</span></td><td><b>${esc(x.name)}</b><br><small>${esc(x.note||"")}</small></td><td>${esc(x.cat)}</td><td class="right ${x.type==="in"?"green":"red"}">${x.type==="in"?"+":"−"} ${money(x.amount)}</td><td><button class="btn" onclick="openTx(${x.id})">Edit</button> <button class="btn danger" onclick="removeTx(${x.id})">Hapus</button></td></tr>`).join(""):'<tr><td colspan="6" class="empty">Belum ada transaksi.</td></tr>'
-}
-function sum(r,type){return r.filter(x=>x.type===type).reduce((s,x)=>s+x.amount,0)}
-function renderDashboard(){
- let d=isoToday(),month=d.slice(0,7),i=sum(store.tx,"in"),o=sum(store.tx,"out"),today=store.tx.filter(x=>x.date.slice(0,10)===d),m=store.tx.filter(x=>x.date.slice(0,7)===month);
- $("dSaldo").textContent=money(i-o);$("dInToday").textContent=money(sum(today,"in"));$("dOutToday").textContent=money(sum(today,"out"));$("dCount").textContent=m.length;
- $("recent").innerHTML=store.tx.slice().sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8).map(x=>`<div class="tx"><span><b>${esc(x.name)}</b><br><small>${x.date.replace("T"," ")} • ${esc(x.cat)}</small></span><b class="${x.type==="in"?"green":"red"}">${x.type==="in"?"+":"−"} ${money(x.amount)}</b></div>`).join("")||'<div class="empty">Belum ada transaksi.</div>';
- $("monthSummary").innerHTML=`<div class="tx"><b>Pemasukan</b><span class="green">${money(sum(m,"in"))}</span></div><div class="tx"><b>Pengeluaran</b><span class="red">${money(sum(m,"out"))}</span></div><div class="tx"><b>Selisih</b><b>${money(sum(m,"in")-sum(m,"out"))}</b></div>`;
- drawChart();
-}
-function drawChart(){
- let c=$("chart"),ctx=c.getContext("2d"),w=c.clientWidth*2,h=300;c.width=w;c.height=h;let days=[];
- for(let k=6;k>=0;k--){let d=new Date();d.setDate(d.getDate()-k);days.push(d.toISOString().slice(0,10))}
- let ins=days.map(d=>sum(store.tx.filter(x=>x.date.slice(0,10)===d),"in")),outs=days.map(d=>sum(store.tx.filter(x=>x.date.slice(0,10)===d),"out")),max=Math.max(1,...ins,...outs);
- ctx.clearRect(0,0,w,h);let p=45,gw=w-p*2,gh=h-65;ctx.strokeStyle="#ddd";ctx.fillStyle="#555";ctx.font="22px Arial";ctx.textAlign="center";
- for(let j=0;j<7;j++){let x=p+gw*j/6;ctx.beginPath();ctx.moveTo(x,p);ctx.lineTo(x,h-40);ctx.stroke();ctx.fillText(days[j].slice(5),x,h-12)}
- function bars(vals,offset){ctx.fillStyle=offset?"#d33":"#16844d";vals.forEach((v,j)=>{let x=p+gw*j/6-12+offset*12,y=h-40-(v/max)*gh;ctx.fillRect(x,y,10,(v/max)*gh)})}
- bars(ins,0);bars(outs,1);
-}
+<div class="modal" id="stockModal">
+  <div class="modalbox">
+    <h2 id="stockTitle">Tambah Stok</h2>
+    <input type="hidden" id="stockId">
+    <label>Nama barang</label><input id="sName" placeholder="Contoh: Mie besar">
+    <label>Satuan</label><input id="sUnit" value="pcs">
+    <label>Isi per pack</label><input id="sPack" type="number" min="1" inputmode="numeric" placeholder="30">
+    <label>Minimum stok</label><input id="sMin" type="number" min="0" inputmode="numeric" placeholder="5">
+    <label>Stok awal (pcs)</label><input id="sQty" type="number" min="0" inputmode="numeric" placeholder="0">
+    <div class="actions"><button class="primary" onclick="saveStock()">Simpan</button><button onclick="closeStock()">Batal</button></div>
+  </div>
+</div>
 
-/* STOK */
-function openStock(id=null){
- $("stockModal").classList.add("show");$("stockModalTitle").textContent=id?"Edit Stok":"Tambah Stok";
- $("stockId").value=id||"";$("sName").value="";$("sStock").value=0;$("sPack").value=30;$("sMin").value=5;
- if(id){let x=store.stock.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sStock").value=x.stock;$("sPack").value=x.pack;$("sMin").value=x.min}}
-}
-function closeStock(){$("stockModal").classList.remove("show")}
-function saveStock(){
- let name=$("sName").value.trim(),stock=Math.max(0,Number($("sStock").value)),pack=Math.max(1,Number($("sPack").value)),min=Math.max(0,Number($("sMin").value));
- if(!name)return;
- let obj={id:$("stockId").value||Date.now(),name,stock,pack,min,so:store.stock.find(x=>x.id==$("stockId").value)?.so ?? null};
- let i=store.stock.findIndex(x=>x.id==obj.id);if(i>=0)store.stock[i]=obj;else store.stock.push(obj);
- persist();closeStock();renderStock();
-}
-function deleteStock(id){askConfirm("Hapus barang stok ini?",()=>{store.stock=store.stock.filter(x=>x.id!=id);persist();renderStock()})}
-let soId=null;
-function openSO(id){
- let x=store.stock.find(a=>a.id==id);if(!x)return;
- soId=id;$("soLabel").textContent=`Hasil Stock Opname ${x.name} (pcs):`;$("soValue").value=x.so===null?x.stock:x.so;
- $("soModal").classList.add("show");setTimeout(()=>$("soValue").select(),50);
-}
-function closeSO(){soId=null;$("soModal").classList.remove("show")}
-function saveSO(){
- if(soId===null)return;let x=store.stock.find(a=>a.id==soId);if(!x)return;
- x.so=Math.max(0,Number($("soValue").value||0));persist();closeSO();renderStock();
-}
-function renderStock(){
- let q=($("stockSearch")?.value||"").toLowerCase(),r=store.stock.filter(x=>x.name.toLowerCase().includes(q));
- $("stockTable").innerHTML=r.length?r.map(x=>{
-   let current=x.so===null?x.stock:x.so,low=current<x.min,status=low?`<span class="stock-status low">Perlu beli</span>`:`<span class="stock-status ok">Aman</span>`;
-   return `<tr><td><b>${esc(x.name)}</b><br><small>${x.so===null?"Belum SO":"SO terakhir: "+x.so+" pcs"}</small></td><td><b>${current}</b> pcs</td><td>${x.pack} pcs</td><td>${x.min} pcs</td><td>${status}</td><td><button class="btn primary" onclick="openSO(${x.id})">SO</button> <button class="btn" onclick="openStock(${x.id})">✏️ Edit</button> <button class="btn danger" onclick="deleteStock(${x.id})">🗑 Hapus</button></td></tr>`
- }).join(""):'<tr><td colspan="6" class="empty">Belum ada barang stok.</td></tr>';
- let need=store.stock.filter(x=>(x.so===null?x.stock:x.so)<x.min);
- $("buyList").innerHTML=need.length?need.map(x=>{
-   let current=x.so===null?x.stock:x.so,def=Math.max(0,x.min-current),packs=Math.ceil(def/x.pack);
-   return `<div class="buy-row"><div><b>${esc(x.name)}</b><div class="note">Sisa SO: ${current} pcs • Minimum: ${x.min} pcs</div></div><div class="buy-pack">${packs} pack</div></div>`
- }).join(""):'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
-}
+<div class="modal" id="soModal">
+  <div class="modalbox compact">
+    <h2>Stock Opname</h2>
+    <p id="soLabel"></p>
+    <input type="hidden" id="soId">
+    <label>Hasil Stock Opname (pcs)</label>
+    <input id="soQty" type="number" min="0" inputmode="numeric" value="0">
+    <div class="actions"><button class="primary" onclick="saveSO()">Oke</button><button onclick="closeSO()">Batal</button></div>
+  </div>
+</div>
 
-/* LAPORAN */
-function getReportRows(){
- let p=$("period").value,d=isoToday(),r=[];
- if(p==="today")r=store.tx.filter(x=>x.date.slice(0,10)===d);
- else if(p==="week"){let s=new Date();s.setDate(s.getDate()-6);let a=s.toISOString().slice(0,10);r=store.tx.filter(x=>x.date.slice(0,10)>=a&&x.date.slice(0,10)<=d)}
- else if(p==="month"){let m=$("reportMonth").value||d.slice(0,7);r=store.tx.filter(x=>x.date.slice(0,7)===m)}
- else {let f=$("reportFrom").value,t=$("reportTo").value;r=store.tx.filter(x=>(!f||x.date.slice(0,10)>=f)&&(!t||x.date.slice(0,10)<=t))}
- return r.sort((a,b)=>a.date.localeCompare(b.date))
-}
-function renderReport(){
- let r=getReportRows(),i=sum(r,"in"),o=sum(r,"out");
- $("reportSummary").innerHTML=`<div class="grid"><div class="card"><small>Pemasukan</small><div class="value green">${money(i)}</div></div><div class="card"><small>Pengeluaran</small><div class="value red">${money(o)}</div></div><div class="card"><small>Selisih</small><div class="value">${money(i-o)}</div></div><div class="card"><small>Jumlah Transaksi</small><div class="value">${r.length}</div></div></div>`;
- $("reportTable").innerHTML=r.map(x=>`<tr><td>${x.date.replace("T"," ")}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${esc(x.cat)}</td><td class="right">${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>'
-}
-function printReport(){document.querySelector(".page.active")?.classList.add("printable");window.print();document.querySelector(".page.active")?.classList.remove("printable")}
-function exportCSV(){
- let r=getReportRows(),rows=[["Tanggal","Jenis","Nama","Kategori","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.cat,x.amount,x.note||""])];
- let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n"),a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click();
-}
+<div class="modal" id="buyModal">
+  <div class="modalbox compact">
+    <h2>Beli Barang</h2>
+    <p id="buyLabel"></p>
+    <input type="hidden" id="buyId">
+    <label>Jumlah beli (pack)</label>
+    <input id="buyPack" type="number" min="1" inputmode="numeric" value="1">
+    <div class="info" id="buyInfo"></div>
+    <div class="actions"><button class="primary" onclick="saveBuy()">Simpan</button><button onclick="closeBuy()">Batal</button></div>
+  </div>
+</div>
 
-/* KATEGORI + BACKUP */
-function renderCats(){$("cats").innerHTML=store.cats.map((c,i)=>`<div class="tx"><span>${esc(c)}</span><button class="btn danger" onclick="delCat(${i})">Hapus</button></div>`).join("")}
-function addCategory(){let c=$("newCat").value.trim();if(!c||store.cats.includes(c))return;store.cats.push(c);$("newCat").value="";persist();renderCats();fillCats()}
-function delCat(i){if(store.cats.length<=1)return;askConfirm("Hapus kategori ini? Transaksi lama tetap tersimpan.",()=>{store.cats.splice(i,1);persist();renderCats();fillCats()})}
-function backup(){let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(store,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.1.3.json";a.click()}
-function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x||!Array.isArray(x.tx)||!Array.isArray(x.cats))throw 0;if(!Array.isArray(x.stock))x.stock=[];store=x;persist();refresh()}catch(_){}};r.readAsText(f)}
-function clearAll(){askConfirm("Semua transaksi, kategori, dan stok akan dihapus. Lanjutkan?",()=>{localStorage.removeItem(KEY);store={tx:[],cats:[...defaultCats],stock:[]};refresh()})}
-function renderInfo(){$("dataInfo").innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.cats.length}</b> kategori<br><b>${store.stock.length}</b> barang stok<br><small>Data tersimpan di browser/perangkat ini.</small>`}
-function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderCats();renderInfo()}
-$("reportMonth").value=isoToday().slice(0,7);
-refresh();
-if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));
-</script>
+<script src="app.js"></script>
+<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("./sw.js").catch(()=>{});}</script>
 </body>
 </html>
