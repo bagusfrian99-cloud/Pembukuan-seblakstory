@@ -15,7 +15,7 @@
   <div class="head">
     <div>
       <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.2.4</div>
+      <div class="version">V3.2.5</div>
       <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
     </div>
     <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
@@ -111,7 +111,7 @@
   <h2>Sinkronisasi POS</h2>
   <div class="panel">
     <h3>Import Backup POS</h3>
-    <p>Gunakan file <b>Backup JSON</b> dari Seblak Story POS. Pembukuan hanya mengambil transaksi dan pengeluaran POS yang belum pernah diimpor.</p>
+    <p>Gunakan file <b>Backup JSON</b> dari Seblak Story POS. Pembukuan mengambil transaksi POS yang sudah masuk shift tertutup dan memisahkan pemasukan menjadi <b>Tunai</b> dan <b>Non Tunai</b>.</p>
     <label class="btn primary fileBtn" style="display:inline-block;text-align:center">
       📥 Pilih Backup POS
       <input type="file" accept=".json,application/json" onchange="importPOSBackup(event)" style="display:none">
@@ -211,7 +211,7 @@
   </div>
 </div>
 
-<script src="app.js?v=3.1.9-fix1"></script>
+<script src="app.js?v=3.2.5"></script>
 <script>
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then(reg=>{

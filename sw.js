@@ -1,4 +1,4 @@
-const CACHE="seblak-story-pwa-v3.2.0";
+const CACHE="seblak-story-pwa-v3.2.5";
 const CORE=["./","./index.html","./style.css","./app.js","./manifest.json","./icon.svg"];
 
 self.addEventListener("install",event=>{

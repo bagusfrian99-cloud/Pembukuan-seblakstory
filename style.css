@@ -20,3 +20,6 @@ table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px 9px
 @media print{header,.actions,.modal{display:none!important}.page{display:none!important}.page.active{display:block!important}.panel{box-shadow:none}}
 
 .dialogbox{text-align:left}.dialogMessage{font-size:17px;line-height:1.55;margin:8px 0 18px;white-space:pre-line}.dialogbox .actions{justify-content:flex-end}.dialogbox .actions button{min-width:110px}
+
+.sync-preview{border-top:1px solid var(--line);padding-top:8px}.sync-preview .summary-row{padding:10px 0}.summary-row{display:flex;justify-content:space-between;gap:12px;align-items:center}.summary-row strong{font-size:17px}.pos-cash{color:#16844d;font-weight:800}.pos-noncash{color:#4058a8;font-weight:800}
+@media(max-width:750px){table{min-width:700px}.brand{line-height:1.25}}

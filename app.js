@@ -94,6 +94,38 @@ function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Jumlah"
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
+// Migrasi otomatis dari V3.2.2: rekap POS gabungan dipecah menjadi Tunai dan Non Tunai.
+function migrateLegacyPOSDaily(){
+  const rows=store.tx.filter(x=>x.source==="POS_DAILY" && /^POS-DAY-\d{4}-\d{2}-\d{2}$/.test(String(x.sourceId||"")));
+  if(!rows.length)return false;
+  let changed=false;
+  rows.forEach(old=>{
+    const day=String(old.sourceId).replace("POS-DAY-","");
+    const label=dayLabel(day);
+    const cash=Number(old.cash||0);
+    const nonCash=Number(old.nonCash||0);
+    if(cash>0){
+      const key=`POS-DAY-${day}-CASH`;
+      const rec={id:key,source:"POS_DAILY",sourceId:key,type:"in",date:`${day}T12:00`,name:`Pemasukan POS (Tunai)`,amount:cash,note:`Tunai • Rekap POS ${label}`,cash,nonCash:0};
+      const existing=store.tx.find(x=>x.sourceId===key);
+      if(existing)Object.assign(existing,rec); else store.tx.push(rec);
+    }
+    if(nonCash>0){
+      const key=`POS-DAY-${day}-NONCASH`;
+      const rec={id:key,source:"POS_DAILY",sourceId:key,type:"in",date:`${day}T12:00`,name:`Pemasukan POS (Non Tunai)`,amount:nonCash,note:`Non Tunai • Rekap POS ${label}`,cash:0,nonCash};
+      const existing=store.tx.find(x=>x.sourceId===key);
+      if(existing)Object.assign(existing,rec); else store.tx.push(rec);
+    }
+    const idx=store.tx.indexOf(old);
+    if(idx>=0)store.tx.splice(idx,1);
+    changed=true;
+  });
+  if(changed)persist();
+  return changed;
+}
+
+migrateLegacyPOSDaily();
+
 function readSyncHistory(){
   try{const x=JSON.parse(localStorage.getItem(POS_SYNC_KEY)||"[]");return Array.isArray(x)?x:[]}
   catch(e){return[]}
@@ -202,7 +234,7 @@ function importPOSBackup(e){
             sourceId:r.key,
             type:"in",
             date:`${day}T12:00`,
-            name:`Pemasukan POS ${r.label} ${dayName}`,
+            name:`Pemasukan POS (${r.label})`,
             amount:r.amount,
             note:r.note,
             cash:r.label==="Tunai"?r.amount:0,
@@ -247,7 +279,7 @@ function importPOSBackup(e){
   reader.readAsText(file);
 }
 
-function backup(){let data={version:"3.2.4",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.4.json";a.click()}
+function backup(){let data={version:"3.2.5",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.5.json";a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.store&&Array.isArray(x.store.tx)){store=x.store;stocks=Array.isArray(x.stocks)?x.stocks:[];}else if(Array.isArray(x)){store={tx:x};stocks=[]}else throw 0;persist();refresh();appAlert("Restore berhasil.","Restore berhasil")}catch(_){appAlert("File backup tidak valid.","Restore gagal")}};r.readAsText(f)}
 function clearAll(){
   appConfirm("Semua transaksi dan stok akan dihapus. Lanjutkan?","Hapus semua data").then(ok=>{
