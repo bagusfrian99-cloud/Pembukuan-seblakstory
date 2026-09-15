@@ -23,7 +23,9 @@ function drawChart(){let c=$('chart'),ctx=c.getContext('2d'),w=c.clientWidth*2,h
 function openCash(type){$('cashModal').classList.add('show');$('cashType').value=type;$('cashTitle').textContent=type==='in'?'Kas Masuk':'Kas Keluar';$('cashAmount').value='';$('cashNote').value=''}function closeCash(){$('cashModal').classList.remove('show')}function saveCash(){let amount=Number($('cashAmount').value);if(amount<=0)return alert('Jumlah wajib diisi.');let type=$('cashType').value;store.tx.push({id:Date.now(),type,date:localDT(),name:type==='in'?'Kas Masuk':'Kas Keluar',cat:type==='in'?'Kas Masuk':'Kas Keluar',amount,note:$('cashNote').value.trim()});persist();closeCash();refresh()}
 
 function renderStock(){
-  $('stockTable').innerHTML=store.stock.length?store.stock.map((x,i)=>{
+  const q=String(($('stockSearchV31')?.value||'')).trim().toLowerCase();
+  const filtered=store.stock.map((x,i)=>({x,i})).filter(o=>!q||String(o.x.name||'').toLowerCase().includes(q));
+  $('stockTable').innerHTML=filtered.length?filtered.map(({x,i})=>{
     x.packQty=Number(x.packQty||1); x.min=Number(x.min||0); x.qty=Number(x.qty||0);
     let low=x.qty<=x.min;
     return `<tr>
@@ -40,7 +42,7 @@ function renderStock(){
        
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="6" class="empty">Belum ada data stok.</td></tr>';
+  }).join(''):(store.stock.length?'<tr><td colspan="6" class="empty">Stok yang dicari tidak ditemukan.</td></tr>':'<tr><td colspan="6" class="empty">Belum ada data stok.</td></tr>');
   renderPurchaseListV31();
 }
 function addStockV31(){
@@ -107,7 +109,7 @@ function addCategory(){let c=$('newCat').value.trim();if(!c)return;if(store.cats
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(store,null,2)],{type:'application/json'}));a.download='backup-pembukuan-seblak-story-v3.1.json';a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x||!Array.isArray(x.tx))throw 0;store=normalize(x);persist();refresh();alert('Restore berhasil.')}catch(_){alert('File backup tidak valid.')}};r.readAsText(f)}
 function clearAll(){if(confirm('SEMUA data transaksi, stok, dan kategori akan dihapus. Lanjutkan?')){localStorage.removeItem(KEY);store=normalize({...emptyStore});refresh()}}
-function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.stock.length}</b> bahan stok<br><b>${store.debts.length}</b> data hutang/piutang<br><small>Versi aplikasi: V3.1.1 • Data lokal perangkat.</small>`}
+function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.stock.length}</b> bahan stok<br><b>${store.debts.length}</b> data hutang/piutang<br><small>Versi aplikasi: V3.1.2 • Data lokal perangkat.</small>`}
 function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderCats();renderInfo()}
 $('reportMonth').value=today().slice(0,7);refresh();
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));

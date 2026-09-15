@@ -27,9 +27,11 @@ canvas{width:100%;height:250px;background:#fff;border-radius:12px}.install{displ
 @media(max-width:700px){#stok .actions{grid-template-columns:1fr 1fr}}
 
 .version-badge{display:inline-block;padding:4px 9px;border-radius:999px;background:#f4c400;color:#222;font-size:11px;font-weight:800;margin-bottom:6px}
+
+.stock-search{display:flex}.stock-search input{width:100%;padding:11px 13px;border:1px solid #ddd;border-radius:10px;font-size:14px}
 </style></head>
 <body>
-<header><div class="head"><div><div class="brand">🌶️ Pembukuan Seblak Story <span class="version">V3.1.1</span></div><div class="sub">Pembukuan toko • data tersimpan di perangkat</div></div><button class="btn" onclick="openTx()">＋ Transaksi</button></div>
+<header><div class="head"><div><div class="brand">🌶️ Pembukuan Seblak Story <span class="version">V3.1.2</span></div><div class="sub">Pembukuan toko • data tersimpan di perangkat</div></div><button class="btn" onclick="openTx()">＋ Transaksi</button></div>
 <nav id="nav"><button class="active" onclick="page('dashboard',this)">Dashboard</button><button onclick="page('transaksi',this)">Transaksi</button><button onclick="page('stok',this)">Stok</button><button onclick="page('laporan',this)">Laporan</button><button onclick="page('kategori',this)">Kategori</button><button onclick="page('backup',this)">Backup</button></nav></header>
 <main>
 <section id="dashboard" class="page active"><h2>Dashboard</h2>
@@ -56,6 +58,11 @@ canvas{width:100%;height:250px;background:#fff;border-radius:12px}.install{displ
     <button class="btn primary" onclick="addStockV31()">Tambah</button>
   </div>
   <small class="muted">Stok utama dihitung dalam satuan barang. Saat beli, masukkan jumlah pack. Saat SO, cukup masukkan stok fisik.</small>
+</div>
+<div class="panel">
+  <div class="stock-search">
+    <input id="stockSearchV31" type="search" placeholder="🔎 Cari nama stok..." oninput="renderStock()">
+  </div>
 </div>
 <div class="panel" style="overflow:auto">
 <table><thead><tr><th>Bahan</th><th>Stok</th><th>1 Pack</th><th>Min.</th><th>Status</th><th>Aksi</th></tr></thead>
@@ -102,7 +109,9 @@ function drawChart(){let c=$('chart'),ctx=c.getContext('2d'),w=c.clientWidth*2,h
 function openCash(type){$('cashModal').classList.add('show');$('cashType').value=type;$('cashTitle').textContent=type==='in'?'Kas Masuk':'Kas Keluar';$('cashAmount').value='';$('cashNote').value=''}function closeCash(){$('cashModal').classList.remove('show')}function saveCash(){let amount=Number($('cashAmount').value);if(amount<=0)return alert('Jumlah wajib diisi.');let type=$('cashType').value;store.tx.push({id:Date.now(),type,date:localDT(),name:type==='in'?'Kas Masuk':'Kas Keluar',cat:type==='in'?'Kas Masuk':'Kas Keluar',amount,note:$('cashNote').value.trim()});persist();closeCash();refresh()}
 
 function renderStock(){
-  $('stockTable').innerHTML=store.stock.length?store.stock.map((x,i)=>{
+  const q=String(($('stockSearchV31')?.value||'')).trim().toLowerCase();
+  const filtered=store.stock.map((x,i)=>({x,i})).filter(o=>!q||String(o.x.name||'').toLowerCase().includes(q));
+  $('stockTable').innerHTML=filtered.length?filtered.map(({x,i})=>{
     x.packQty=Number(x.packQty||1); x.min=Number(x.min||0); x.qty=Number(x.qty||0);
     let low=x.qty<=x.min;
     return `<tr>
@@ -119,7 +128,7 @@ function renderStock(){
        
       </td>
     </tr>`;
-  }).join(''):'<tr><td colspan="6" class="empty">Belum ada data stok.</td></tr>';
+  }).join(''):(store.stock.length?'<tr><td colspan="6" class="empty">Stok yang dicari tidak ditemukan.</td></tr>':'<tr><td colspan="6" class="empty">Belum ada data stok.</td></tr>');
   renderPurchaseListV31();
 }
 function addStockV31(){
@@ -186,7 +195,7 @@ function addCategory(){let c=$('newCat').value.trim();if(!c)return;if(store.cats
 function backup(){let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(store,null,2)],{type:'application/json'}));a.download='backup-pembukuan-seblak-story-v3.1.json';a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(!x||!Array.isArray(x.tx))throw 0;store=normalize(x);persist();refresh();alert('Restore berhasil.')}catch(_){alert('File backup tidak valid.')}};r.readAsText(f)}
 function clearAll(){if(confirm('SEMUA data transaksi, stok, dan kategori akan dihapus. Lanjutkan?')){localStorage.removeItem(KEY);store=normalize({...emptyStore});refresh()}}
-function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.stock.length}</b> bahan stok<br><b>${store.debts.length}</b> data hutang/piutang<br><small>Versi aplikasi: V3.1.1 • Data lokal perangkat.</small>`}
+function renderInfo(){$('dataInfo').innerHTML=`<b>${store.tx.length}</b> transaksi<br><b>${store.stock.length}</b> bahan stok<br><b>${store.debts.length}</b> data hutang/piutang<br><small>Versi aplikasi: V3.1.2 • Data lokal perangkat.</small>`}
 function refresh(){renderDashboard();renderTransactions();renderStock();renderReport();renderCats();renderInfo()}
 $('reportMonth').value=today().slice(0,7);refresh();
 if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
