@@ -2,9 +2,29 @@ const KEY="seblak_story_v314";
 const STOCK_KEY="seblak_story_stock_v314";
 let store=JSON.parse(localStorage.getItem(KEY)||"null")||{tx:[]};
 let stocks=JSON.parse(localStorage.getItem(STOCK_KEY)||"[]");
+function normalizeTxData(){
+  if(!Array.isArray(store.tx))store.tx=[];
+  let changed=false;
+  store.tx=store.tx.map(x=>{
+    if(!x||typeof x!=="object")return x;
+    const y={...x};
+    const rawType=String(y.type??y.jenis??y.kind??"").trim().toLowerCase();
+    if(["pemasukan","income","masuk","in","credit"].includes(rawType)) y.type="in";
+    else if(["pengeluaran","expense","keluar","out","debit"].includes(rawType)) y.type="out";
+    else if(y.type!=="in"&&y.type!=="out") y.type=String(y.name||"").toLowerCase().includes("pengeluaran")?"out":"in";
+    const n=typeof y.amount==="number"?y.amount:Number(String(y.amount??y.jumlah??0).replace(/[^0-9-]/g,""))||0;
+    if(y.amount!==n){y.amount=n;changed=true}
+    if(!y.source){y.source="MANUAL";changed=true}
+    return y;
+  });
+  if(changed)persist();
+}
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>{
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+};
 const localDT=()=>{let d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
 const esc=s=>String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));
 
@@ -142,25 +162,14 @@ function txDay(x){
 }
 function reportRows(){
   const p=reportApplied.period||"month",d=today();
-  // Semua transaksi pembukuan ikut laporan, baik MANUAL maupun hasil sinkronisasi POS.
   const all=Array.isArray(store.tx)?store.tx:[];
-  if(p==="today")return all.filter(x=>txDay(x)===d);
-  if(p==="week"){
-    const cut=new Date();
-    cut.setHours(0,0,0,0);
-    cut.setDate(cut.getDate()-13);
-    const s=`${cut.getFullYear()}-${String(cut.getMonth()+1).padStart(2,"0")}-${String(cut.getDate()).padStart(2,"0")}`;
-    return all.filter(x=>{const day=txDay(x);return !!day&&day>=s&&day<=d});
-  }
-  if(p==="month"){
-    const m=reportApplied.month||d.slice(0,7);
-    return all.filter(x=>txDay(x).slice(0,7)===m);
-  }
-  const f=reportApplied.from||"",t=reportApplied.to||"";
-  return all.filter(x=>{
-    const day=txDay(x);
-    return !!day&&(!f||day>=f)&&(!t||day<=t);
-  });
+  const typeOf=x=>{const t=String(x?.type??x?.jenis??"").trim().toLowerCase();return ["in","pemasukan","income","masuk","credit"].includes(t)?"in":(["out","pengeluaran","expense","keluar","debit"].includes(t)?"out":(String(x?.name||"").toLowerCase().includes("pengeluaran")?"out":"in"));};
+  const dayOf=x=>{const raw=String(x?.date??x?.tanggal??x?.createdAt??"");if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);const dt=new Date(raw);return Number.isNaN(dt.getTime())?"":`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;};
+  const normalized=all.map(x=>({...x,type:typeOf(x),_day:dayOf(x),amount:Number(x?.amount??x?.jumlah??0)||0})).filter(x=>x._day);
+  if(p==="today")return normalized.filter(x=>x._day===d);
+  if(p==="week"){const cut=new Date();cut.setHours(0,0,0,0);cut.setDate(cut.getDate()-13);const s=`${cut.getFullYear()}-${String(cut.getMonth()+1).padStart(2,"0")}-${String(cut.getDate()).padStart(2,"0")}`;return normalized.filter(x=>x._day>=s&&x._day<=d);}
+  if(p==="month"){const m=reportApplied.month||d.slice(0,7);return normalized.filter(x=>x._day.slice(0,7)===m);}
+  const f=reportApplied.from||"",t=reportApplied.to||"";const from=f&&t&&f>t?t:f,to=f&&t&&f>t?f:t;return normalized.filter(x=>(!from||x._day>=from)&&(!to||x._day<=to));
 }
 function renderReport(){
   ensureReportControls();
