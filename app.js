@@ -105,7 +105,7 @@ function renderSyncHistory(){
   el.innerHTML=h.length?h.slice().reverse().slice(0,10).map(x=>`
     <div class="buyrow">
       <span><b>${esc(x.file||"Backup POS")}</b><div class="buyinfo">${esc(x.date||"")}</div></span>
-      <span>${x.days||0} hari • ${x.cash||0} cash • ${x.nonCash||0} non tunai</span>
+      <span>💵 Tunai Rp ${Math.round(x.cash||0).toLocaleString("id-ID")}<br>💳 Non Tunai Rp ${Math.round(x.nonCash||0).toLocaleString("id-ID")}<br>💰 Total Rp ${Math.round((x.cash||0)+(x.nonCash||0)).toLocaleString("id-ID")}</span>
     </div>`).join(""):'<div class="empty">Belum ada riwayat.</div>';
 }
 function posBackupPayload(root){
@@ -212,7 +212,13 @@ function importPOSBackup(e){
         }
       });
 
-      persist(); refresh();
+const syncPreview=$("syncPreview");
+      if(syncPreview){
+        const tc=Object.values(byDay).reduce((a,v)=>a+v.cash,0);
+        const tn=Object.values(byDay).reduce((a,v)=>a+v.nonCash,0);
+        syncPreview.innerHTML=`<div class="summary-row"><span>💵 Tunai</span><strong>Rp ${Math.round(tc).toLocaleString("id-ID")}</strong></div><div class="summary-row"><span>💳 Non Tunai</span><strong>Rp ${Math.round(tn).toLocaleString("id-ID")}</strong></div><div class="summary-row"><span>💰 Total Pemasukan</span><strong>Rp ${Math.round(tc+tn).toLocaleString("id-ID")}</strong></div>`;
+      }
+            persist(); refresh();
 
       const h=readSyncHistory();
       h.push({
@@ -237,7 +243,7 @@ function importPOSBackup(e){
   reader.readAsText(file);
 }
 
-function backup(){let data={version:"3.2.2",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.2.json";a.click()}
+function backup(){let data={version:"3.2.3",store,stocks};let a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:"application/json"}));a.download="backup-pembukuan-seblak-story-v3.2.3.json";a.click()}
 function restore(e){let f=e.target.files[0];if(!f)return;let r=new FileReader();r.onload=()=>{try{let x=JSON.parse(r.result);if(x.store&&Array.isArray(x.store.tx)){store=x.store;stocks=Array.isArray(x.stocks)?x.stocks:[];}else if(Array.isArray(x)){store={tx:x};stocks=[]}else throw 0;persist();refresh();appAlert("Restore berhasil.","Restore berhasil")}catch(_){appAlert("File backup tidak valid.","Restore gagal")}};r.readAsText(f)}
 function clearAll(){
   appConfirm("Semua transaksi dan stok akan dihapus. Lanjutkan?","Hapus semua data").then(ok=>{
