@@ -79,9 +79,12 @@ function saveTx(){
     sourceId:old?.sourceId||null
   };
   if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);
+  // Transaksi manual disimpan permanen dan langsung tersedia di Laporan.
+  x.source=x.source||"MANUAL";
   persist();
   closeModal();
   refresh();
+  if(document.getElementById("laporan")?.classList.contains("active")) renderReport();
 }
 
 function sum(a,t){return a.filter(x=>x.type===t).reduce((s,x)=>s+Number(x.amount||0),0)}
@@ -133,26 +136,37 @@ function applyReportFilter(){
   renderReport();
   appAlert("Filter laporan berhasil diterapkan. Transaksi manual maupun sinkronisasi POS yang masuk dalam periode akan ditampilkan.","Laporan diperbarui");
 }
+function txDay(x){
+  const v=String(x?.date||"");
+  return v.length>=10 ? v.slice(0,10) : "";
+}
 function reportRows(){
   const p=reportApplied.period||"month",d=today();
-  if(p==="today")return store.tx.filter(x=>String(x.date||"").slice(0,10)===d);
+  // Semua transaksi pembukuan ikut laporan, baik MANUAL maupun hasil sinkronisasi POS.
+  const all=Array.isArray(store.tx)?store.tx:[];
+  if(p==="today")return all.filter(x=>txDay(x)===d);
   if(p==="week"){
-    const cut=new Date();cut.setDate(cut.getDate()-13);
-    const s=cut.toISOString().slice(0,10);
-    return store.tx.filter(x=>{const day=String(x.date||"").slice(0,10);return day>=s&&day<=d});
+    const cut=new Date();
+    cut.setHours(0,0,0,0);
+    cut.setDate(cut.getDate()-13);
+    const s=`${cut.getFullYear()}-${String(cut.getMonth()+1).padStart(2,"0")}-${String(cut.getDate()).padStart(2,"0")}`;
+    return all.filter(x=>{const day=txDay(x);return !!day&&day>=s&&day<=d});
   }
   if(p==="month"){
     const m=reportApplied.month||d.slice(0,7);
-    return store.tx.filter(x=>String(x.date||"").slice(0,7)===m);
+    return all.filter(x=>txDay(x).slice(0,7)===m);
   }
   const f=reportApplied.from||"",t=reportApplied.to||"";
-  return store.tx.filter(x=>{const day=String(x.date||"").slice(0,10);return (!f||day>=f)&&(!t||day<=t)});
+  return all.filter(x=>{
+    const day=txDay(x);
+    return !!day&&(!f||day>=f)&&(!t||day<=t);
+  });
 }
 function renderReport(){
   ensureReportControls();
   let r=reportRows(),i=sum(r,"in"),o=sum(r,"out");
   $("reportSummary").innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;
-  $("reportTable").innerHTML=r.slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(x=>`<tr><td>${esc(String(x.date||"").replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
+  $("reportTable").innerHTML=r.slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||""))).map(x=>`<tr><td>${esc(String(x.date||"").replace("T"," "))}</td><td>${x.type==="in"?"Pemasukan":"Pengeluaran"}</td><td>${esc(x.name)}</td><td>${x.source==="POS_DAILY"?"POS":"Manual"}</td><td>${money(x.amount)}</td></tr>`).join("")||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
 }
 function printReport(){window.print()}
 function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
