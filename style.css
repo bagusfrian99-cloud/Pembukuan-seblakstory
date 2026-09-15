@@ -18,3 +18,5 @@ table{width:100%;border-collapse:collapse;min-width:760px}th,td{padding:12px 9px
 @media(max-width:750px){.brand{font-size:23px}.topbtn{min-width:120px;font-size:17px;padding:12px}.grid{grid-template-columns:1fr 1fr}.two{grid-template-columns:1fr}.stockTools{grid-template-columns:1fr 125px}main{padding:14px}h2{font-size:27px}}
 @media(max-width:460px){.head{align-items:flex-start}.topbtn{min-width:110px}.grid{grid-template-columns:1fr}.brand{font-size:22px}nav button{padding:11px 17px}}
 @media print{header,.actions,.modal{display:none!important}.page{display:none!important}.page.active{display:block!important}.panel{box-shadow:none}}
+
+.dialogbox{text-align:left}.dialogMessage{font-size:17px;line-height:1.55;margin:8px 0 18px;white-space:pre-line}.dialogbox .actions{justify-content:flex-end}.dialogbox .actions button{min-width:110px}
