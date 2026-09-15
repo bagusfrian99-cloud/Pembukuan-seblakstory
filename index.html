@@ -54,7 +54,7 @@
     </div>
     <button class="primary big" onclick="openTx()">＋ Tambah Transaksi</button>
   </div>
-  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div>
+  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div>
 </section>
 
 <section id="stok" class="page active">
@@ -93,12 +93,22 @@
     <div id="reportSummary"></div>
     <div class="actions"><button class="primary" onclick="printReport()">🖨 Cetak</button><button onclick="exportCSV()">📄 Export CSV</button></div>
   </div>
-  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
 </section>
+
+<section id="kategori" class="page">
+  <h2>Kategori</h2>
+  <div class="panel">
+    <p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
+    <div class="two"><input id="newCat" placeholder="Nama kategori"><button class="primary" onclick="addCategory()">Tambah</button></div>
+    <div id="cats"></div>
+  </div>
+</section>
+
 <section id="backup" class="page">
   <h2>Backup & Restore</h2>
   <div class="panel">
-    <p>Backup menyimpan transaksi, kategori, dan stok ke satu file JSON.</p>
+    <p>Backup menyimpan transaksi dan stok ke satu file JSON.</p>
     <div class="actions">
       <button class="primary" onclick="backup()">⬇ Backup Data</button>
       <label class="fileBtn">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)"></label>
@@ -170,7 +180,7 @@
   </div>
 </div>
 
-<script src="app.js?v=3.1.7-fix1"></script>
+<script src="app.js?v=3.1.9-fix1"></script>
 <script>
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then(reg=>{
