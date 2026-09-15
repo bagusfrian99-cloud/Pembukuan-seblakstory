@@ -15,7 +15,7 @@
   <div class="head">
     <div>
       <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.1.7</div>
+      <div class="version">V3.1.9</div>
       <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
     </div>
     <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
@@ -25,7 +25,6 @@
     <button onclick="page('transaksi',this)">Transaksi</button>
     <button class="active" onclick="page('stok',this)">Stok</button>
     <button onclick="page('laporan',this)">Laporan</button>
-    <button onclick="page('kategori',this)">Kategori</button>
     <button onclick="page('backup',this)">Backup</button>
   </nav>
 </header>
@@ -84,7 +83,7 @@
   <h2>Laporan</h2>
   <div class="panel">
     <div class="two">
-      <div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">7 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
+      <div><label>Periode</label><select id="period" onchange="renderReport()"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
       <div><label>Bulan</label><input type="month" id="reportMonth" onchange="renderReport()"></div>
     </div>
     <div class="two">
@@ -96,16 +95,6 @@
   </div>
   <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Kategori</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
 </section>
-
-<section id="kategori" class="page">
-  <h2>Kategori</h2>
-  <div class="panel">
-    <p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
-    <div class="two"><input id="newCat" placeholder="Nama kategori"><button class="primary" onclick="addCategory()">Tambah</button></div>
-    <div id="cats"></div>
-  </div>
-</section>
-
 <section id="backup" class="page">
   <h2>Backup & Restore</h2>
   <div class="panel">
@@ -127,7 +116,6 @@
     <label>Jenis</label><select id="tType"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select>
     <label>Tanggal & waktu</label><input type="datetime-local" id="tDate">
     <label>Nama transaksi</label><input id="tName" placeholder="Contoh: Penjualan Seblak / Beli bahan">
-    <label>Kategori</label><select id="tCat"></select>
     <label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0">
     <label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea>
     <div class="actions"><button class="primary" onclick="saveTx()">Simpan</button><button onclick="closeModal()">Batal</button></div>
