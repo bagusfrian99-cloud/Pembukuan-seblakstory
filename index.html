@@ -15,7 +15,7 @@
   <div class="head">
     <div>
       <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.3.7</div>
+      <div class="version">V3.3.8</div>
       <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
     </div>
     <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
@@ -31,20 +31,11 @@
 </header>
 
 <main>
-<section id="dashboard" class="page">
-  <h2>Dashboard</h2>
-  <div class="grid">
-    <div class="card"><small>Saldo</small><strong id="dSaldo">Rp0</strong></div>
-    <div class="card"><small>Pemasukan Hari Ini</small><strong class="green" id="dIn">Rp0</strong></div>
-    <div class="card"><small>Pengeluaran Hari Ini</small><strong class="red" id="dOut">Rp0</strong></div>
-    <div class="card"><small>Transaksi Bulan Ini</small><strong id="dCount">0</strong></div>
-  </div>
-  <div class="panel"><h3>Transaksi Terbaru</h3><div id="recent"></div></div>
-</section>
+<section id="dashboard" class="page active"><div class="mobileTitle"><div><span class="miniLogo">🌶️</span><b>Seblak Story</b><small>PEMBUKUAN</small></div><button class="iconBtn" onclick="openTx()">＋</button></div><div class="dateCard">📅 <span id="dashDate"></span><span>⌄</span></div><div class="heroBalance"><div><small>Saldo Kas</small><strong id="dSaldo">Rp0</strong></div><div class="wallet">💰</div></div><div class="moneyGrid"><div class="moneyCard income"><span>↑</span><small>Pemasukan</small><strong id="dIn">Rp0</strong></div><div class="moneyCard expense"><span>↓</span><small>Pengeluaran</small><strong id="dOut">Rp0</strong></div></div><div class="quickGrid"><button onclick="page('transaksi',document.querySelectorAll('nav button')[1])">📒<b>Buku Kas</b></button><button onclick="page('stok',document.querySelectorAll('nav button')[2])">📦<b>Stok Bahan</b></button><button onclick="page('laporan',document.querySelectorAll('nav button')[3])">📊<b>Laporan</b></button><button onclick="page('backup',document.querySelectorAll('nav button')[4])">⚙️<b>Lainnya</b></button></div><div class="panel chartPanel"><div class="sectionHead"><h3>Ringkasan 7 Hari Terakhir</h3><span>↗</span></div><div id="dashChart" class="barChart"></div><div class="legend"><span><i class="dot greenDot"></i>Pemasukan</span><span><i class="dot redDot"></i>Pengeluaran</span></div></div><div class="panel"><div class="sectionHead"><h3>Transaksi Terbaru</h3><button class="textBtn" onclick="page('transaksi',document.querySelectorAll('nav button')[1])">Lihat semua</button></div><div id="recent"></div></div></section>
 
 <section id="transaksi" class="page">
-  <h2>Transaksi</h2>
-  <div class="panel">
+  <h2>Buku Kas</h2>
+  <div class="cashTabs"><button class="cashTab active" onclick="setCashTab('all',this)">Semua</button><button class="cashTab" onclick="setCashTab('in',this)">Pemasukan</button><button class="cashTab" onclick="setCashTab('out',this)">Pengeluaran</button></div><div class="panel">
     <div class="two">
       <div><label>Cari</label><input id="search" placeholder="Cari nama/keterangan..." oninput="renderTransactions()"></div>
       <div><label>Filter jenis</label><select id="filterType" onchange="renderTransactions()"><option value="">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select></div>
@@ -92,7 +83,7 @@
       <div><label>Sampai <span class="optional">(opsional)</span></label><input type="date" id="reportTo"></div>
     </div>
     <button class="primary applyReport" onclick="applyReportFilter()">✓ Terapkan</button>
-    <div id="reportSummary"></div>
+    <div id="reportSummary" class="reportCards"></div><div class="panelInnerChart"><div class="sectionHead"><h3>Grafik Keuangan</h3></div><div id="reportChart" class="reportBars"></div></div>
     <div class="actions"><button class="primary" onclick="printReport()">🖨 Cetak</button><button onclick="exportCSV()">📄 Export CSV</button></div>
   </div>
   <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
@@ -142,8 +133,7 @@
   </div>
   <div class="panel"><h3>Data</h3><div id="dataInfo"></div></div>
 </section>
-</main>
-
+</main><footer class="appFooter"><b>🌶️ Seblak Story</b><span>Keuangan Rapi, Usaha Makin Happy</span></footer>
 <div class="modal" id="modal">
   <div class="modalbox">
     <h2 id="modalTitle">Tambah Transaksi</h2>
@@ -205,7 +195,7 @@
   </div>
 </div>
 
-<script src="app.js?v=3.2.7"></script>
+<script src="app.js?v=3.3.8"></script>
 <script>
 if("serviceWorker" in navigator){
   navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then(reg=>{
