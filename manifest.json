@@ -1,7 +1,7 @@
 {
   "name": "Seblak Story Pembukuan",
   "short_name": "Seblak Story",
-  "description": "Pembukuan, buku kas, stok bahan, laporan, backup, dan sinkronisasi POS.",
+  "description": "Pembukuan, buku kas, stok bahan, laporan, backup dan sinkron POS Seblak Story.",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#fffdf5",

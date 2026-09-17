@@ -1,214 +1,70 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#f4c400">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Pembukuan Seblak Story">
-<link rel="manifest" href="manifest.json">
-<link rel="stylesheet" href="style.css">
-<title>Pembukuan Seblak Story</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#ffd21c"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Seblak Story Pembukuan">
+<link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css"><title>Seblak Story Pembukuan</title>
 </head>
 <body>
-<header>
-  <div class="head">
-    <div>
-      <div class="brand">🌶️ Pembukuan Seblak Story</div>
-      <div class="version">V3.3.8</div>
-      <div class="sub">Pembukuan toko • data tersimpan di perangkat</div>
-    </div>
-    <button class="topbtn" onclick="openTx()">＋<br>Transaksi</button>
-  </div>
-  <nav>
-    <button onclick="page('dashboard',this)">Dashboard</button>
-    <button onclick="page('transaksi',this)">Transaksi</button>
-    <button class="active" onclick="page('stok',this)">Stok</button>
-    <button onclick="page('laporan',this)">Laporan</button>
-    <button onclick="page('backup',this)">Backup</button>
-  <button onclick="page('syncpos',this)">Sinkron POS</button>
-  </nav>
-</header>
-
+<header class="appHeader"><div class="topbar"><button class="iconBtn" onclick="toggleMenu()">☰</button><div class="brandLogo"><span class="logoBowl">🍜</span><div><b>Seblak Story</b><small>PEMBUKUAN</small></div></div><button class="iconBtn" onclick="appAlert('Tidak ada notifikasi baru.','Notifikasi')">♧</button></div></header>
 <main>
-<section id="dashboard" class="page active"><div class="mobileTitle"><div><span class="miniLogo">🌶️</span><b>Seblak Story</b><small>PEMBUKUAN</small></div><button class="iconBtn" onclick="openTx()">＋</button></div><div class="dateCard">📅 <span id="dashDate"></span><span>⌄</span></div><div class="heroBalance"><div><small>Saldo Kas</small><strong id="dSaldo">Rp0</strong></div><div class="wallet">💰</div></div><div class="moneyGrid"><div class="moneyCard income"><span>↑</span><small>Pemasukan</small><strong id="dIn">Rp0</strong></div><div class="moneyCard expense"><span>↓</span><small>Pengeluaran</small><strong id="dOut">Rp0</strong></div></div><div class="quickGrid"><button onclick="page('transaksi',document.querySelectorAll('nav button')[1])">📒<b>Buku Kas</b></button><button onclick="page('stok',document.querySelectorAll('nav button')[2])">📦<b>Stok Bahan</b></button><button onclick="page('laporan',document.querySelectorAll('nav button')[3])">📊<b>Laporan</b></button><button onclick="page('backup',document.querySelectorAll('nav button')[4])">⚙️<b>Lainnya</b></button></div><div class="panel chartPanel"><div class="sectionHead"><h3>Ringkasan 7 Hari Terakhir</h3><span>↗</span></div><div id="dashChart" class="barChart"></div><div class="legend"><span><i class="dot greenDot"></i>Pemasukan</span><span><i class="dot redDot"></i>Pengeluaran</span></div></div><div class="panel"><div class="sectionHead"><h3>Transaksi Terbaru</h3><button class="textBtn" onclick="page('transaksi',document.querySelectorAll('nav button')[1])">Lihat semua</button></div><div id="recent"></div></div></section>
-
-<section id="transaksi" class="page">
-  <h2>Buku Kas</h2>
-  <div class="cashTabs"><button class="cashTab active" onclick="setCashTab('all',this)">Semua</button><button class="cashTab" onclick="setCashTab('in',this)">Pemasukan</button><button class="cashTab" onclick="setCashTab('out',this)">Pengeluaran</button></div><div class="panel">
-    <div class="two">
-      <div><label>Cari</label><input id="search" placeholder="Cari nama/keterangan..." oninput="renderTransactions()"></div>
-      <div><label>Filter jenis</label><select id="filterType" onchange="renderTransactions()"><option value="">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select></div>
-    </div>
-    <div class="two">
-      <div><label>Dari tanggal</label><input type="date" id="from" onchange="renderTransactions()"></div>
-      <div><label>Sampai tanggal</label><input type="date" id="to" onchange="renderTransactions()"></div>
-    </div>
-    <button class="primary big" onclick="openTx()">＋ Tambah Transaksi</button>
-  </div>
-  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Jumlah</th><th>Aksi</th></tr></thead><tbody id="txTable"></tbody></table></div>
+<section id="dashboard" class="page active">
+  <div class="datePicker">▣ <span id="dashDate"></span><b>⌄</b></div>
+  <div class="balanceCard"><div class="walletIcon">▣</div><div><small>Saldo Kas</small><strong id="dSaldo">Rp 0</strong></div></div>
+  <div class="statGrid"><div class="miniStat in"><span>↑</span><div>Pemasukan<strong id="dIn">Rp 0</strong></div></div><div class="miniStat out"><span>↓</span><div>Pengeluaran<strong id="dOut">Rp 0</strong></div></div></div>
+  <div class="card"><h3>Ringkasan 7 Hari Terakhir</h3><div id="weekChart" class="chart"></div><div class="legend"><span><i class="dot inDot"></i>Pemasukan</span><span><i class="dot outDot"></i>Pengeluaran</span></div></div>
+  <div class="quickGrid"><button onclick="page('transaksi',document.querySelector('[data-page=transaksi]'))">▣<b>Buku Kas</b></button><button onclick="page('stok',document.querySelector('[data-page=stok]'))">▦<b>Stok Bahan</b></button><button onclick="page('laporan',document.querySelector('[data-page=laporan]'))">▤<b>Laporan</b></button><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">⚙<b>Lainnya</b></button></div>
 </section>
 
-<section id="stok" class="page active">
-  <h2>Stok Barang</h2>
-  <div class="panel">
-    <div class="stockTools">
-      <input id="stockSearch" placeholder="🔍 Cari stok..." oninput="renderStock()">
-      <button class="primary" onclick="openStock()">＋ Tambah</button>
-    </div>
-    <p class="hint">Stok dihitung dalam satuan pcs/barang. Saat beli, masukkan jumlah <b>pack</b>. Saat SO, cukup masukkan stok fisik.</p>
-    <div class="scroll">
-      <table class="stockTable">
-        <thead><tr><th>Barang</th><th>Stok</th><th>Isi/Pack</th><th>Min.</th><th>Status</th><th>Beli</th><th>Aksi</th></tr></thead>
-        <tbody id="stockTable"></tbody>
-      </table>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>🛒 Daftar Barang yang Harus Dibeli</h3>
-    <p class="hint">Otomatis dihitung dari hasil Stock Opname dan jumlah isi per pack.</p>
-    <div id="buyList"></div>
-  </div>
+<section id="transaksi" class="page">
+  <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Buku Kas</h2><button class="plus" onclick="openTx()">+</button></div>
+  <div class="tabs"><button id="tabIn" class="active" onclick="setTxTab('in')">Pemasukan</button><button id="tabOut" onclick="setTxTab('out')">Pengeluaran</button><button id="tabAll" onclick="setTxTab('all')">Riwayat</button></div>
+  <div class="filterRow"><select id="filterType" onchange="setTxTab(this.value==='out'?'out':this.value==='in'?'in':'all');renderTransactions()"><option value="in">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select><input type="month" id="kasMonth" onchange="renderTransactions()"></div>
+  <div id="kasTotal" class="totalLabel"></div>
+  <div id="txCards" class="listCard"></div>
+  <button class="primary big full" id="txAddBtn" onclick="openTx()">＋ Tambah Pemasukan</button>
+</section>
+
+<section id="stok" class="page">
+  <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Stok Bahan</h2><div class="headActions"><button onclick="appAlert('Gunakan pencarian untuk menemukan bahan.','Cari bahan')">⌕</button><button class="plus" onclick="openStock()">+</button></div></div>
+  <div class="searchBox">⌕ <input id="stockSearch" placeholder="Cari bahan..." oninput="renderStock()"></div>
+  <div class="stockFilters"><button class="active">Semua</button><button>Hampir Habis</button><button>Habis</button></div>
+  <div id="stockCards" class="stockList"></div>
+  <div class="card buyListCard"><h3>Daftar Barang yang Harus Dibeli</h3><div id="buyList"></div></div>
 </section>
 
 <section id="laporan" class="page">
-  <h2>Laporan</h2>
-  <div class="panel">
-    <div class="two">
-      <div><label>Periode</label><select id="period"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select></div>
-      <div><label>Bulan</label><input type="month" id="reportMonth"></div>
-    </div>
-    <div class="two">
-      <div><label>Dari <span class="optional">(opsional)</span></label><input type="date" id="reportFrom"></div>
-      <div><label>Sampai <span class="optional">(opsional)</span></label><input type="date" id="reportTo"></div>
-    </div>
-    <button class="primary applyReport" onclick="applyReportFilter()">✓ Terapkan</button>
-    <div id="reportSummary" class="reportCards"></div><div class="panelInnerChart"><div class="sectionHead"><h3>Grafik Keuangan</h3></div><div id="reportChart" class="reportBars"></div></div>
-    <div class="actions"><button class="primary" onclick="printReport()">🖨 Cetak</button><button onclick="exportCSV()">📄 Export CSV</button></div>
-  </div>
-  <div class="panel scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+  <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Laporan</h2><span></span></div>
+  <div class="reportTabs"><button class="active">Keuangan</button><button>Stok</button></div>
+  <div class="dateRange"><input type="date" id="reportFrom"><span>–</span><input type="date" id="reportTo"><button onclick="applyReportFilter()">▣</button></div>
+  <div class="card reportCard"><div class="reportLine"><span>↑ Total Pemasukan</span><b class="green" id="reportInTop">Rp 0</b></div><div class="reportLine"><span>↓ Total Pengeluaran</span><b class="red" id="reportOutTop">Rp 0</b></div><div class="profitBox"><span>Saldo / Laba</span><b id="reportNetTop">Rp 0</b></div><h3>Grafik Keuangan</h3><div id="reportChart" class="chart"></div><div class="reportActions"><button onclick="exportCSV()">▧ Export Excel</button><button onclick="printReport()">▣ Cetak</button><button onclick="appAlert('Bagikan laporan melalui menu berbagi perangkat.','Share')">⇧ Share</button></div></div>
+  <div class="card"><div class="two reportHiddenControls"><select id="period"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select><input type="month" id="reportMonth"></div><div class="actions"><button class="primary applyReport" onclick="applyReportFilter()">✓ Terapkan</button></div><div id="reportSummary"></div></div>
+  <div class="card scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
 </section>
 
-<section id="kategori" class="page">
-  <h2>Kategori</h2>
-  <div class="panel">
-    <p>Kategori digunakan untuk mengelompokkan pemasukan dan pengeluaran.</p>
-    <div class="two"><input id="newCat" placeholder="Nama kategori"><button class="primary" onclick="addCategory()">Tambah</button></div>
-    <div id="cats"></div>
+<section id="lainnya" class="page">
+  <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.8</small></div></div>
+  <div class="menuCard">
+    <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
+    <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
+    <button onclick="appAlert('Backup ke GitHub dapat dilakukan dengan mengunggah file backup ke repository.','Backup ke GitHub')">◉ <span>Backup ke GitHub</span> ›</button>
+    <button onclick="appAlert('Pengaturan aplikasi tersedia melalui menu ini pada versi berikutnya.','Pengaturan Aplikasi')">⚙ <span>Pengaturan Aplikasi</span> ›</button>
+    <button onclick="appAlert('Printer 80 mm dapat digunakan melalui dialog cetak perangkat.','Pengaturan Printer')">▣ <span>Pengaturan Printer</span> ›</button>
+    <button onclick="appAlert('Seblak Story Pembukuan • data tersimpan di perangkat.','Tentang Aplikasi')">ⓘ <span>Tentang Aplikasi</span> ›</button>
   </div>
 </section>
 
+<section id="backup" class="page"><div class="sectionHead"><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">‹</button><h2>Backup & Restore</h2><span></span></div><div class="card"><p>Backup menyimpan transaksi dan stok ke satu file JSON.</p><div class="actions"><button class="primary" onclick="backup()">⬇ Backup Data</button><label class="fileBtn">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)"></label><button class="danger" onclick="clearAll()">Hapus Semua Data</button></div></div><div class="card"><h3>Data</h3><div id="dataInfo"></div></div></section>
+<section id="syncpos" class="page"><div class="sectionHead"><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">‹</button><h2>Sinkron POS</h2><span></span></div><div class="card"><h3>Import Backup POS</h3><label class="fileBtn primary">📥 Pilih Backup POS<input type="file" accept=".json,application/json" onchange="importPOSBackup(event)"></label><div id="syncStatus" class="sub">Belum ada sinkronisasi.</div><div id="syncPreview" class="sync-preview"><div class="summary-row"><span>💵 Tunai</span><strong>Rp 0</strong></div><div class="summary-row"><span>💳 Non Tunai</span><strong>Rp 0</strong></div><div class="summary-row"><span>💰 Total Pemasukan</span><strong>Rp 0</strong></div></div></div><div class="card"><h3>Riwayat Sinkronisasi</h3><div id="syncHistory"><div class="empty">Belum ada riwayat.</div></div></div></section>
+</main>
 
-<section id="syncpos" class="page">
-  <h2>Sinkronisasi POS</h2>
-  <div class="panel">
-    <h3>Import Backup POS</h3>
-    <p>Gunakan file <b>Backup JSON</b> dari Seblak Story POS. Pembukuan mengambil transaksi POS yang sudah masuk shift tertutup dan memisahkan pemasukan menjadi <b>Tunai</b> dan <b>Non Tunai</b>.</p>
-    <label class="btn primary fileBtn" style="display:inline-block;text-align:center">
-      📥 Pilih Backup POS
-      <input type="file" accept=".json,application/json" onchange="importPOSBackup(event)" style="display:none">
-    </label>
-    <div id="syncStatus" class="sub" style="margin-top:12px">Belum ada sinkronisasi.</div>
-    <div id="syncPreview" class="sync-preview" style="margin-top:14px">
-      <div class="summary-row"><span>💵 Tunai</span><strong>Rp 0</strong></div>
-      <div class="summary-row"><span>💳 Non Tunai</span><strong>Rp 0</strong></div>
-      <div class="summary-row"><span>💰 Total Pemasukan</span><strong>Rp 0</strong></div>
-    </div>
-  </div>
-  <div class="panel">
-    <h3>Riwayat Sinkronisasi</h3>
-    <div id="syncHistory"><div class="empty">Belum ada riwayat.</div></div>
-  </div>
-</section>
+<nav class="bottomNav"><button data-page="dashboard" class="active" onclick="page('dashboard',this)">⌂<small>Beranda</small></button><button data-page="transaksi" onclick="page('transaksi',this)">▣<small>Buku Kas</small></button><button data-page="stok" onclick="page('stok',this)">▦<small>Stok</small></button><button data-page="laporan" onclick="page('laporan',this)">▤<small>Laporan</small></button><button data-page="lainnya" onclick="page('lainnya',this)">☰<small>Lainnya</small></button></nav>
 
-<section id="backup" class="page">
-  <h2>Backup & Restore</h2>
-  <div class="panel">
-    <p>Backup menyimpan transaksi dan stok ke satu file JSON.</p>
-    <div class="actions">
-      <button class="primary" onclick="backup()">⬇ Backup Data</button>
-      <label class="fileBtn">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)"></label>
-      <button class="danger" onclick="clearAll()">Hapus Semua Data</button>
-    </div>
-  </div>
-  <div class="panel"><h3>Data</h3><div id="dataInfo"></div></div>
-</section>
-</main><footer class="appFooter"><b>🌶️ Seblak Story</b><span>Keuangan Rapi, Usaha Makin Happy</span></footer>
-<div class="modal" id="modal">
-  <div class="modalbox">
-    <h2 id="modalTitle">Tambah Transaksi</h2>
-    <input type="hidden" id="editId">
-    <label>Jenis</label><select id="tType" onchange="updateTxNameField()"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select>
-    <label>Tanggal & waktu</label><input type="datetime-local" id="tDate">
-    <label>Nama transaksi</label><div id="incomeNameWrap"><select id="tIncomeName"><option value="Tunai">Tunai</option><option value="Non Tunai">Non Tunai</option></select></div><div id="expenseNameWrap" style="display:none"><input id="tName" placeholder="Contoh: Beli bahan"></div>
-    <label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0">
-    <label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea>
-    <div class="actions"><button class="primary" onclick="saveTx()">Simpan</button><button onclick="closeModal()">Batal</button></div>
-  </div>
-</div>
-
-<div class="modal" id="stockModal">
-  <div class="modalbox">
-    <h2 id="stockTitle">Tambah Stok</h2>
-    <input type="hidden" id="stockId">
-    <label>Nama barang</label><input id="sName" placeholder="Contoh: Mie besar">
-    <label>Satuan</label><input id="sUnit" value="pcs">
-    <label>Isi per pack</label><input id="sPack" type="number" min="1" inputmode="numeric" placeholder="30">
-    <label>Minimum stok</label><input id="sMin" type="number" min="0" inputmode="numeric" placeholder="5">
-    <label>Stok awal (pcs)</label><input id="sQty" type="number" min="0" inputmode="numeric" placeholder="0">
-    <div class="actions"><button class="primary" onclick="saveStock()">Simpan</button><button onclick="closeStock()">Batal</button></div>
-  </div>
-</div>
-
-<div class="modal" id="soModal">
-  <div class="modalbox compact">
-    <h2>Stock Opname</h2>
-    <p id="soLabel"></p>
-    <input type="hidden" id="soId">
-    <label>Hasil Stock Opname (pcs)</label>
-    <input id="soQty" type="number" min="0" inputmode="numeric" value="0">
-    <div class="actions"><button class="primary" onclick="saveSO()">Oke</button><button onclick="closeSO()">Batal</button></div>
-  </div>
-</div>
-
-<div class="modal" id="buyModal">
-  <div class="modalbox compact">
-    <h2>Beli Barang</h2>
-    <p id="buyLabel"></p>
-    <input type="hidden" id="buyId">
-    <label>Jumlah beli (pack)</label>
-    <input id="buyPack" type="number" min="1" inputmode="numeric" value="1" oninput="updateBuyTotal()">
-    <label>Harga per pack (Rp)</label>
-    <input id="buyPrice" type="number" min="0" inputmode="numeric" value="0" placeholder="Contoh: 10000" oninput="updateBuyTotal()">
-    <div class="info" id="buyInfo"></div>
-    <div class="buyTotal">Total pembelian: <b id="buyTotal">Rp 0</b></div>
-    <div class="actions"><button class="primary" onclick="saveBuy()">Simpan Pembelian</button><button onclick="closeBuy()">Batal</button></div>
-  </div>
-</div>
-
-
-<div class="modal" id="dialogModal">
-  <div class="modalbox compact dialogbox">
-    <h2 id="dialogTitle">Pesan</h2>
-    <p id="dialogMessage" class="dialogMessage"></p>
-    <div class="actions" id="dialogActions"></div>
-  </div>
-</div>
-
-<script src="app.js?v=3.3.8"></script>
-<script>
-if("serviceWorker" in navigator){
-  navigator.serviceWorker.register("./sw.js", {updateViaCache:"none"}).then(reg=>{
-    reg.update().catch(()=>{});
-  }).catch(()=>{});
-  navigator.serviceWorker.addEventListener("controllerchange",()=>{
-    if(!sessionStorage.getItem("pwa-updated")){
-      sessionStorage.setItem("pwa-updated","1");
-      location.reload();
-    }
-  });
-  window.addEventListener("pageshow",()=>navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{}));
-}
-</script>
-</body>
-</html>
+<div class="modal" id="modal"><div class="modalbox"><h2 id="modalTitle">Tambah Transaksi</h2><input type="hidden" id="editId"><label>Jenis</label><select id="tType" onchange="updateTxNameField()"><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select><label>Tanggal & waktu</label><input type="datetime-local" id="tDate"><label>Nama transaksi</label><div id="incomeNameWrap"><select id="tIncomeName"><option value="Tunai">Tunai</option><option value="Non Tunai">Non Tunai</option></select></div><div id="expenseNameWrap" style="display:none"><input id="tName" placeholder="Contoh: Beli bahan"></div><label>Jumlah (Rp)</label><input id="tAmount" type="number" inputmode="numeric" min="0" placeholder="0"><label>Keterangan</label><textarea id="tNote" placeholder="Opsional"></textarea><div class="actions"><button class="primary" onclick="saveTx()">Simpan</button><button onclick="closeModal()">Batal</button></div></div></div>
+<div class="modal" id="stockModal"><div class="modalbox"><h2 id="stockTitle">Tambah Stok</h2><input type="hidden" id="stockId"><label>Nama barang</label><input id="sName" placeholder="Contoh: Mie besar"><label>Satuan</label><input id="sUnit" value="pcs"><label>Isi per pack</label><input id="sPack" type="number" min="1"><label>Minimum stok</label><input id="sMin" type="number" min="0"><label>Stok awal (pcs)</label><input id="sQty" type="number" min="0" value="0"><div class="actions"><button class="primary" onclick="saveStock()">Simpan</button><button onclick="closeStock()">Batal</button></div></div></div>
+<div class="modal" id="soModal"><div class="modalbox compact"><h2>Stock Opname</h2><p id="soLabel"></p><input type="hidden" id="soId"><label>Hasil Stock Opname (pcs)</label><input id="soQty" type="number" min="0"><div class="actions"><button class="primary" onclick="saveSO()">Oke</button><button onclick="closeSO()">Batal</button></div></div></div>
+<div class="modal" id="buyModal"><div class="modalbox compact"><h2>Beli Barang</h2><p id="buyLabel"></p><input type="hidden" id="buyId"><label>Jumlah beli (pack)</label><input id="buyPack" type="number" min="1" value="1" oninput="updateBuyTotal()"><label>Harga per pack (Rp)</label><input id="buyPrice" type="number" min="0" value="0" oninput="updateBuyTotal()"><div class="info" id="buyInfo"></div><div class="buyTotal">Total pembelian: <b id="buyTotal">Rp 0</b></div><div class="actions"><button class="primary" onclick="saveBuy()">Simpan Pembelian</button><button onclick="closeBuy()">Batal</button></div></div></div>
+<div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
+<script src="app.js?v=3.3.8"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body></html>
