@@ -9,7 +9,10 @@
 <header class="appHeader"><div class="topbar"><button class="iconBtn" onclick="toggleMenu()">☰</button><div class="brandLogo"><span class="logoBowl">🍜</span><div><b>Seblak Story</b><small>PEMBUKUAN</small></div></div><button class="iconBtn" onclick="appAlert('Tidak ada notifikasi baru.','Notifikasi')">♧</button></div></header>
 <main>
 <section id="dashboard" class="page active">
-  <div class="datePicker">▣ <span id="dashDate"></span><b>⌄</b></div>
+  <button type="button" class="datePicker" id="dashDateButton" onclick="openDashboardDate()">
+  ▣ <span id="dashDate"></span><b>⌄</b>
+</button>
+<input type="date" id="dashboardDateInput" aria-label="Pilih tanggal dashboard" tabindex="-1">
   <div class="balanceCard"><div class="walletIcon">▣</div><div><small>Saldo Kas</small><strong id="dSaldo">Rp 0</strong></div></div>
   <div class="statGrid"><div class="miniStat in"><span>↑</span><div>Pemasukan<strong id="dIn">Rp 0</strong></div></div><div class="miniStat out"><span>↓</span><div>Pengeluaran<strong id="dOut">Rp 0</strong></div></div></div>
   <div class="card"><h3>Ringkasan 7 Hari Terakhir</h3><div id="weekChart" class="chart"></div><div class="legend"><span><i class="dot inDot"></i>Pemasukan</span><span><i class="dot outDot"></i>Pengeluaran</span></div></div>
@@ -44,7 +47,7 @@
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.8</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.9</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>

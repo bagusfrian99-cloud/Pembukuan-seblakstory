@@ -10,3 +10,15 @@ main{max-width:560px;margin:auto;padding:12px 14px}.page{display:none}.page.acti
 table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:left}th{background:#fff8cf}.scroll{overflow:auto}
 @media(min-width:700px){body{padding-bottom:20px}.bottomNav{display:none}.appHeader{position:static}.page{max-width:560px;margin:auto}.quickGrid button:hover,.menuCard button:hover{background:#fff8cf}}
 @page{size:80mm auto;margin:0}@media print{html,body{width:80mm!important;background:#fff!important}.appHeader,.bottomNav,.actions,.modal,.datePicker,.tabs,.filterRow,.reportTabs,.dateRange{display:none!important}main{width:80mm!important;padding:0!important}.page{display:none!important}.page.active{display:block!important}.card{box-shadow:none;border-radius:0}.reportCard{display:block!important}table{font-size:9px!important}th,td{padding:2mm 1mm!important}}
+
+/* v3.3.9: interactive dashboard date picker */
+.datePicker{
+  width:100%; border:1px solid #eee; background:#fff; color:#222;
+  border-radius:18px; padding:13px 15px; margin-bottom:14px;
+  display:flex; align-items:center; justify-content:space-between; gap:10px;
+  font:inherit; text-align:left; cursor:pointer; box-sizing:border-box;
+}
+.datePicker:active{transform:scale(.99)}
+#dashboardDateInput{
+  position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;
+}
