@@ -47,7 +47,7 @@
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.9</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.10</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
@@ -69,5 +69,5 @@
 <div class="modal" id="soModal"><div class="modalbox compact"><h2>Stock Opname</h2><p id="soLabel"></p><input type="hidden" id="soId"><label>Hasil Stock Opname (pcs)</label><input id="soQty" type="number" min="0"><div class="actions"><button class="primary" onclick="saveSO()">Oke</button><button onclick="closeSO()">Batal</button></div></div></div>
 <div class="modal" id="buyModal"><div class="modalbox compact"><h2>Beli Barang</h2><p id="buyLabel"></p><input type="hidden" id="buyId"><label>Jumlah beli (pack)</label><input id="buyPack" type="number" min="1" value="1" oninput="updateBuyTotal()"><label>Harga per pack (Rp)</label><input id="buyPrice" type="number" min="0" value="0" oninput="updateBuyTotal()"><div class="info" id="buyInfo"></div><div class="buyTotal">Total pembelian: <b id="buyTotal">Rp 0</b></div><div class="actions"><button class="primary" onclick="saveBuy()">Simpan Pembelian</button><button onclick="closeBuy()">Batal</button></div></div></div>
 <div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
-<script src="app.js?v=3.3.8"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();</script>
+<script src="app.js?v=3.3.10"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body></html>

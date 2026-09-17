@@ -161,7 +161,7 @@ function sum(a,t){return a.filter(x=>x.type===t).reduce((s,x)=>s+Number(x.amount
 let dashboardSelectedDate = today();
 
 function formatDashboardDate(iso){
-  const d = new Date(iso + "T00:00:00");
+  const d = new Date(String(iso).slice(0,10) + "T00:00:00");
   return d.toLocaleDateString("id-ID",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
 }
 
@@ -190,11 +190,11 @@ function renderDashboard(){
   $('dOut').textContent=money(sum(td,'out'));
   if($('dCount')) $('dCount').textContent=mo.length;
 
-  $('dashDate').textContent=formatDashboardDate(d);
+  const dateLabel=$('dashDate'); if(dateLabel) dateLabel.textContent=formatDashboardDate(d);
   const input=$('dashboardDateInput');
   if(input) input.value=d;
 
-  const chart=$('weekChart'); let html='';
+  const chart=$('weekChart'); if(!chart) return; let html='';
   const base=new Date(d+"T00:00:00");
   for(let i=6;i>=0;i--){
     const x=new Date(base); x.setDate(base.getDate()-i);
@@ -304,7 +304,7 @@ function restore(e){
   const file=e.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{try{const root=JSON.parse(reader.result); if(!root?.data)throw new Error("Format backup tidak dikenali."); const raw=root.data[KEY]; const rawStock=root.data[STOCK_KEY]; if(raw)store=typeof raw==="string"?JSON.parse(raw):raw; if(rawStock)stocks=typeof rawStock==="string"?JSON.parse(rawStock):rawStock; normalizeTxData(); persist(); refresh(); appAlert("Backup berhasil dipulihkan.","Restore berhasil");}catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}}; reader.readAsText(file);
 }
 function clearAll(){appConfirm("Hapus semua transaksi dan stok dari perangkat? Data yang sudah dihapus tidak dapat dikembalikan tanpa backup.","Hapus Semua Data").then(ok=>{if(!ok)return;store={tx:[]};stocks=[];persist();refresh();appAlert("Semua data telah dihapus.","Data dihapus")})}
-function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.9</b></div>`}
+function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.10</b></div>`}
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
