@@ -115,18 +115,54 @@ function base64Unicode(text){
 function githubConfigReady(s){return !!(s.owner&&s.repo&&s.branch&&s.folder&&s.token)}
 function githubApiHeaders(token){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"}}
 function backupPayload(){
-  return {app:"Seblak Story Pembukuan",appVersion:"3.3.11",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+  return {app:"Seblak Story Pembukuan",appVersion:"3.3.12",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
 }
 function githubFileUrl(s,path){return `https://api.github.com/repos/${encodeURIComponent(s.owner)}/${encodeURIComponent(s.repo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`}
 async function githubPutJson(s,path,payload,message){
   const url=githubFileUrl(s,path), headers=githubApiHeaders(s.token);
+  const jsonContent=JSON.stringify(payload,null,2);
   let sha=null;
-  const get=await fetch(url,{headers});
-  if(get.ok){const current=await get.json();sha=current.sha||null}
-  else if(get.status!==404){let detail="";try{detail=(await get.json()).message||""}catch(e){} throw new Error(detail||`GitHub GET gagal (${get.status})`)}
-  const body={message,content:base64Unicode(JSON.stringify(payload,null,2)),branch:s.branch}; if(sha)body.sha=sha;
-  const put=await fetch(url,{method:"PUT",headers,body:JSON.stringify(body)});
-  if(!put.ok){let detail="";try{detail=(await put.json()).message||""}catch(e){} throw new Error(detail||`GitHub upload gagal (${put.status})`)}
+
+  // Always ask GitHub for the file on the selected branch. This is important
+  // when the repository default branch differs from the branch configured in the app.
+  const get=await fetch(url+`?ref=${encodeURIComponent(s.branch)}`,{headers});
+  if(get.ok){
+    const current=await get.json();
+    sha=current.sha||null;
+  }else if(get.status!==404){
+    let detail="";
+    try{detail=(await get.json()).message||""}catch(e){}
+    throw new Error(detail||`GitHub GET gagal (${get.status})`);
+  }
+
+  const makeBody=(fileSha=null)=>{
+    const body={message,content:base64Unicode(jsonContent),branch:s.branch};
+    if(fileSha)body.sha=fileSha;
+    return body;
+  };
+
+  let put=await fetch(url,{method:"PUT",headers,body:JSON.stringify(makeBody(sha))});
+
+  // If GitHub says a SHA is required, the file exists and must be updated.
+  // Re-read it from the configured branch and retry once with the current SHA.
+  if(!put.ok){
+    let detail="";
+    try{detail=(await put.json()).message||""}catch(e){}
+    if(/sha.*wasn.?t supplied|sha.*required/i.test(detail)){
+      const retryGet=await fetch(url+`?ref=${encodeURIComponent(s.branch)}`,{headers});
+      if(retryGet.ok){
+        const current=await retryGet.json();
+        if(current.sha){
+          put=await fetch(url,{method:"PUT",headers,body:JSON.stringify(makeBody(current.sha))});
+        }
+      }
+    }
+    if(!put.ok){
+      let retryDetail=detail;
+      try{const j=await put.json();retryDetail=j.message||retryDetail}catch(e){}
+      throw new Error(retryDetail||`GitHub upload gagal (${put.status})`);
+    }
+  }
   return put.json();
 }
 async function githubBackupNow(showMessage=true){
@@ -169,7 +205,8 @@ function refresh(){
   else if(id==="backup")renderInfo();
   else if(id==="syncpos")renderSyncHistory();
 }
-function page(id,btn){
+let restoringHistory=false;
+function showPage(id,btn){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   const target=$(id); if(!target)return; target.classList.add('active');
   document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));
@@ -182,6 +219,32 @@ function page(id,btn){
   if(id==='backup')renderInfo();
   if(id==='syncpos')renderSyncHistory();
   window.scrollTo({top:0,behavior:'smooth'});
+}
+function page(id,btn){
+  if(!$(id))return;
+  showPage(id,btn);
+  if(!restoringHistory){
+    const current=history.state?.page;
+    if(current!==id)history.pushState({page:id},'',window.location.href.split('#')[0]+'#'+id);
+  }
+}
+function closeAnyOpenModal(){
+  const ids=['modal','stockModal','soModal','buyModal','githubModal','dialogModal'];
+  let closed=false;
+  ids.forEach(id=>{const el=$(id);if(el?.classList.contains('show')){el.classList.remove('show');closed=true}});
+  return closed;
+}
+function initBackNavigation(){
+  const initial=location.hash.replace(/^#/,'')||'dashboard';
+  history.replaceState({page:initial,root:true},'',window.location.href.split('#')[0]+'#'+initial);
+  if(initial!=='dashboard')showPage(initial,document.querySelector(`[data-page="${initial}"]`));
+  window.addEventListener('popstate',()=>{
+    if(closeAnyOpenModal())return;
+    const id=history.state?.page||'dashboard';
+    restoringHistory=true;
+    showPage(id,document.querySelector(`[data-page="${id}"]`));
+    restoringHistory=false;
+  });
 }
 function toggleMenu(){ page('lainnya',document.querySelector('[data-page="lainnya"]')); }
 let txTab='in';
