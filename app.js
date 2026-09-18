@@ -1,4 +1,7 @@
 const KEY="seblak_story_v314";
+const GITHUB_SETTINGS_KEY="seblak_story_github_backup_v1";
+let githubBackupTimer=null;
+let githubBackupBusy=false;
 const STOCK_KEY="seblak_story_stock_v314";
 let store=JSON.parse(localStorage.getItem(KEY)||"null")||{tx:[]};
 let stocks=JSON.parse(localStorage.getItem(STOCK_KEY)||"[]");
@@ -68,7 +71,93 @@ function appChoice(message,choices,title="Pilih Aksi"){
     showDialog(message,{title,buttons:choices.map(c=>({label:c.label,value:c.value,primary:c.primary}))});
   });
 }
-function persist(){localStorage.setItem(KEY,JSON.stringify(store));localStorage.setItem(STOCK_KEY,JSON.stringify(stocks))}
+function persist(){
+  localStorage.setItem(KEY,JSON.stringify(store));
+  localStorage.setItem(STOCK_KEY,JSON.stringify(stocks));
+  scheduleGitHubBackup();
+}
+
+function readGitHubSettings(){
+  try{
+    const x=JSON.parse(localStorage.getItem(GITHUB_SETTINGS_KEY)||"null");
+    return x&&typeof x==="object"?x:{owner:"",repo:"",branch:"main",folder:"backup",token:"",auto:false,lastBackup:"",lastStatus:""};
+  }catch(e){return {owner:"",repo:"",branch:"main",folder:"backup",token:"",auto:false,lastBackup:"",lastStatus:""}}
+}
+function saveGitHubSettingsLocal(x){localStorage.setItem(GITHUB_SETTINGS_KEY,JSON.stringify(x))}
+function openGitHubSettings(){
+  const s=readGitHubSettings();
+  $("ghOwner").value=s.owner||""; $("ghRepo").value=s.repo||""; $("ghBranch").value=s.branch||"main";
+  $("ghFolder").value=s.folder||"backup"; $("ghToken").value=s.token||""; $("ghAuto").checked=!!s.auto;
+  const status=s.lastStatus ? `${s.lastStatus}${s.lastBackup?" • "+s.lastBackup:""}` : (s.auto?"Backup otomatis aktif.":"Belum terhubung.");
+  $("ghStatus").textContent=status;
+  $("githubModal").classList.add("show");
+}
+function closeGitHubSettings(){$("githubModal").classList.remove("show")}
+function getGitHubForm(){
+  return {
+    owner:$("ghOwner").value.trim(), repo:$("ghRepo").value.trim(), branch:$("ghBranch").value.trim()||"main",
+    folder:$("ghFolder").value.trim().replace(/^\/+|\/+$/g,"")||"backup", token:$("ghToken").value.trim(), auto:$("ghAuto").checked
+  };
+}
+function saveGitHubSettings(){
+  const old=readGitHubSettings(), s=getGitHubForm();
+  s.lastBackup=old.lastBackup||""; s.lastStatus=old.lastStatus||"";
+  saveGitHubSettingsLocal(s);
+  $("ghStatus").textContent=s.auto?"Pengaturan tersimpan • Backup otomatis aktif.":"Pengaturan tersimpan • Backup otomatis nonaktif.";
+  if(s.auto) scheduleGitHubBackup();
+  appAlert(s.auto?"Backup otomatis GitHub sudah diaktifkan. Backup akan dijalankan setelah data berubah.":"Pengaturan GitHub tersimpan. Backup otomatis saat ini nonaktif.","Pengaturan GitHub");
+}
+function base64Unicode(text){
+  const bytes=new TextEncoder().encode(text); let binary="";
+  const chunk=0x8000; for(let i=0;i<bytes.length;i+=chunk) binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
+  return btoa(binary);
+}
+function githubConfigReady(s){return !!(s.owner&&s.repo&&s.branch&&s.folder&&s.token)}
+function githubApiHeaders(token){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"}}
+function backupPayload(){
+  return {app:"Seblak Story Pembukuan",appVersion:"3.3.11",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+}
+function githubFileUrl(s,path){return `https://api.github.com/repos/${encodeURIComponent(s.owner)}/${encodeURIComponent(s.repo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`}
+async function githubPutJson(s,path,payload,message){
+  const url=githubFileUrl(s,path), headers=githubApiHeaders(s.token);
+  let sha=null;
+  const get=await fetch(url,{headers});
+  if(get.ok){const current=await get.json();sha=current.sha||null}
+  else if(get.status!==404){let detail="";try{detail=(await get.json()).message||""}catch(e){} throw new Error(detail||`GitHub GET gagal (${get.status})`)}
+  const body={message,content:base64Unicode(JSON.stringify(payload,null,2)),branch:s.branch}; if(sha)body.sha=sha;
+  const put=await fetch(url,{method:"PUT",headers,body:JSON.stringify(body)});
+  if(!put.ok){let detail="";try{detail=(await put.json()).message||""}catch(e){} throw new Error(detail||`GitHub upload gagal (${put.status})`)}
+  return put.json();
+}
+async function githubBackupNow(showMessage=true){
+  if(githubBackupBusy)return;
+  const s=readGitHubSettings();
+  if(!githubConfigReady(s)){if(showMessage)appAlert("Lengkapi Owner, Repository, Branch, Folder Backup, dan token GitHub terlebih dahulu.","Pengaturan GitHub belum lengkap");return}
+  githubBackupBusy=true;
+  const status=$("ghStatus"); if(status)status.textContent="Mengunggah backup ke GitHub…";
+  try{
+    const payload=backupPayload();
+    const day=today();
+    const path=`${s.folder}/backup-${day}.json`;
+    await githubPutJson(s,path,payload,`Backup Pembukuan Seblak Story ${day}`);
+    const now=new Date().toLocaleString("id-ID");
+    const next={...s,lastBackup:now,lastStatus:"Backup GitHub berhasil"}; saveGitHubSettingsLocal(next);
+    if(status)status.textContent=`Backup GitHub berhasil • ${now} • ${path}`;
+    if(showMessage)appAlert(`Backup berhasil diunggah ke GitHub.\n\nFile: ${path}\nWaktu: ${now}`,"Backup GitHub berhasil");
+  }catch(err){
+    const msg=err?.message||"Gagal mengunggah backup ke GitHub.";
+    const next={...s,lastStatus:"Backup GitHub gagal: "+msg}; saveGitHubSettingsLocal(next);
+    if(status)status.textContent="Gagal: "+msg;
+    if(showMessage)appAlert(msg+"\n\nData lokal tetap aman dan tidak dihapus.","Backup GitHub gagal");
+  }finally{githubBackupBusy=false}
+}
+function scheduleGitHubBackup(){
+  const s=readGitHubSettings();
+  if(!s.auto||!githubConfigReady(s))return;
+  clearTimeout(githubBackupTimer);
+  githubBackupTimer=setTimeout(()=>githubBackupNow(false),1800);
+}
+
 function refresh(){
   const active=document.querySelector('.page.active');
   if(!active)return;
@@ -304,7 +393,7 @@ function restore(e){
   const file=e.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{try{const root=JSON.parse(reader.result); if(!root?.data)throw new Error("Format backup tidak dikenali."); const raw=root.data[KEY]; const rawStock=root.data[STOCK_KEY]; if(raw)store=typeof raw==="string"?JSON.parse(raw):raw; if(rawStock)stocks=typeof rawStock==="string"?JSON.parse(rawStock):rawStock; normalizeTxData(); persist(); refresh(); appAlert("Backup berhasil dipulihkan.","Restore berhasil");}catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}}; reader.readAsText(file);
 }
 function clearAll(){appConfirm("Hapus semua transaksi dan stok dari perangkat? Data yang sudah dihapus tidak dapat dikembalikan tanpa backup.","Hapus Semua Data").then(ok=>{if(!ok)return;store={tx:[]};stocks=[];persist();refresh();appAlert("Semua data telah dihapus.","Data dihapus")})}
-function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.10</b></div>`}
+function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.11</b></div>`}
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
@@ -533,6 +622,8 @@ function importPOSBackup(e){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
+  const gs=readGitHubSettings();
+  if(gs.auto && githubConfigReady(gs)) setTimeout(()=>githubBackupNow(false),1200);
   const di=$("dashboardDateInput");
   if(di) di.addEventListener("change",e=>setDashboardDate(e.target.value));
 });
