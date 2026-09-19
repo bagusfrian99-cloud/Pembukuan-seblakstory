@@ -428,6 +428,32 @@ function stockStatusValue(x){
   return x.qty===0?'kurang':x.qty<=x.min?'sedikit':'aman';
 }
 if(Array.isArray(stocks)) stocks.forEach(x=>{if(x.initialQty==null) x.initialQty=x.qty;});
+function getBuyListItems(){
+  return stocks.filter(x=>x.qty<=x.min).map(x=>{
+    const target=Math.max(x.initialQty??x.qty,x.min);
+    const buy=Math.max(0,target-x.qty);
+    return {name:x.name,buy};
+  }).filter(x=>x.buy>0);
+}
+
+async function shareBuyListWhatsApp(){
+  const items=getBuyListItems();
+  if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Daftar Belanja");}
+  const lines=["🛒 DAFTAR BELANJA","SEBLAK STORY","",...items.map((x,i)=>`${i+1}. ${x.name} — ${x.buy} pack`)];
+  const text=lines.join("\n");
+  try{
+    if(navigator.share){
+      await navigator.share({title:"Daftar Belanja Seblak Story",text});
+      appAlert("Pilih WhatsApp lalu pilih Status Saya untuk membagikan daftar ini ke Status WhatsApp.","Bagikan ke WhatsApp");
+      return;
+    }
+  }catch(e){
+    if(e?.name==='AbortError') return;
+  }
+  const url='https://wa.me/?text='+encodeURIComponent(text);
+  window.open(url,'_blank');
+}
+
 function renderStock(){
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
@@ -442,7 +468,7 @@ function renderStock(){
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
     return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button><button type="button" onclick="openSO(${x.id})">SO</button></div></div>`;
   }).join('')||'<div class="empty">Belum ada bahan pada filter ini.</div>';
-  const needs=stocks.filter(x=>x.qty<=x.min); $('buyList').innerHTML=needs.map(x=>{const target=Math.max(x.initialQty??x.qty,x.min);const buy=Math.max(0,target-x.qty);return `<div class="buyrow"><span><b>${esc(x.name)}</b><div class="buyinfo">Sisa ${x.qty} pack • Stok awal ${target} pack • Minimum ${x.min} pack</div></span><span class="buyqty">${buy} pack</span></div>`}).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
+  const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyqty">${x.buy} pack</span></div>`).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
 }
 
 
