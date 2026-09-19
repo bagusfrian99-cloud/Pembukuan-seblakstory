@@ -392,7 +392,7 @@ function renderTransactions(){
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
 function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
 function closeStock(){$("stockModal").classList.remove("show")}
-function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),pack=Number($("sPack").value)||1,min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return appAlert("Lengkapi nama, isi/pack, minimum pack, dan stok pack.","Data belum lengkap");let old=id?stocks.find(a=>a.id==id):null;let x={id:id?Number(id):Date.now(),name,unit:"pack",stockUnit:"pack",pack,min,qty,lastSO:old?.lastSO??qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
+function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),pack=Number($("sPack").value)||1,min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return appAlert("Lengkapi nama, isi/pack, minimum pack, dan stok pack.","Data belum lengkap");let old=id?stocks.find(a=>a.id==id):null;let initialQty=old?.initialQty??qty;let x={id:id?Number(id):Date.now(),name,unit:"pack",stockUnit:"pack",pack,min,qty,initialQty,lastSO:old?.lastSO??qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
 function stockStatus(x){return x.qty===0?'<span class="status low">Kurang</span>':x.qty<=x.min?'<span class="status low">Sisa Sedikit</span>':'<span class="status safe">Aman</span>'}
 function soCondition(qty,min){return qty<=0?"kurang":qty<=min?"sedikit":"aman"}
 function updateSOCondition(){const qty=Math.max(0,Number($("soQty").value)||0),x=stocks.find(a=>a.id===Number($("soId").value));if(!x)return;const st=soCondition(qty,x.min);document.querySelectorAll('input[name="soCondition"]').forEach(r=>r.checked=r.value===st);$("soConditionHint").textContent=st==="aman"?"Aman":st==="sedikit"?"Sisa Sedikit":"Kurang"}
@@ -427,6 +427,7 @@ function setStockFilter(filter){
 function stockStatusValue(x){
   return x.qty===0?'kurang':x.qty<=x.min?'sedikit':'aman';
 }
+if(Array.isArray(stocks)) stocks.forEach(x=>{if(x.initialQty==null) x.initialQty=x.qty;});
 function renderStock(){
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
@@ -441,7 +442,7 @@ function renderStock(){
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
     return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button><button type="button" onclick="openSO(${x.id})">SO</button></div></div>`;
   }).join('')||'<div class="empty">Belum ada bahan pada filter ini.</div>';
-  const needs=stocks.filter(x=>x.qty<=x.min); $('buyList').innerHTML=needs.map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b><div class="buyinfo">Sisa ${x.qty} pack • Minimum ${x.min}</div></span><span class="buyqty">${Math.max(1,Math.ceil(Math.max(0,x.min-x.qty)/x.pack))} pack</span></div>`).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
+  const needs=stocks.filter(x=>x.qty<=x.min); $('buyList').innerHTML=needs.map(x=>{const target=Math.max(x.initialQty??x.qty,x.min);const buy=Math.max(0,target-x.qty);return `<div class="buyrow"><span><b>${esc(x.name)}</b><div class="buyinfo">Sisa ${x.qty} pack • Stok awal ${target} pack • Minimum ${x.min} pack</div></span><span class="buyqty">${buy} pack</span></div>`}).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
 }
 
 
