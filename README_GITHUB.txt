@@ -13,3 +13,5 @@ Update utama:
 - Service worker/cache dinaikkan ke v3.3.8 agar update GitHub Pages lebih mudah diterapkan.
 
 Untuk GitHub Pages: ekstrak isi ZIP ke repository, pastikan index.html berada di root repository, lalu aktifkan Settings > Pages > Deploy from branch.
+
+Telegram automatic input bridge is included in v3.3.17. See README_TELEGRAM_AUTO.md.

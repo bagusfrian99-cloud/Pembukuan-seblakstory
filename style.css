@@ -28,3 +28,11 @@ table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:9px 6px;b
 .checkRow input{width:auto;margin:0}
 .ghStatus{background:#f5f7fa;border:1px solid #e5e7eb;border-radius:10px;padding:10px;font-size:11px;line-height:1.45;margin:8px 0}
 .ghHint{background:#fffdf0;border-left:4px solid #ffd21c;border-radius:8px;padding:10px;font-size:10px;line-height:1.5;color:#5b6472;margin-bottom:10px}
+
+.printerBox{width:min(520px,100%)}
+.printerStatus{background:#f5f7fa;border:1px solid #e5e7eb;border-radius:10px;padding:11px;font-size:12px;margin:8px 0;line-height:1.45}
+.printerHint{background:#fff8cf;border-left:4px solid var(--yellow);border-radius:8px;padding:10px;font-size:10px;line-height:1.5;color:#5b6472;margin:8px 0 12px}
+
+.telegramBox{width:min(520px,100%)}
+.tgStatus{background:#f5f7fa;border:1px solid #e5e7eb;border-radius:10px;padding:10px;font-size:11px;line-height:1.45;margin:8px 0}
+.telegramHint{background:#fff8cf;border-left:4px solid var(--yellow);border-radius:8px;padding:10px;font-size:10px;line-height:1.5;color:#5b6472;margin:8px 0 12px}
