@@ -81,13 +81,13 @@
 <div class="actions"><button onclick="saveGitHubSettings()">Simpan Pengaturan</button><button class="primary" onclick="githubBackupNow()">☁ Backup Sekarang</button><button onclick="closeGitHubSettings()">Tutup</button></div>
 </div></div>
 
-<div class="modal" id="telegramModal"><div class="modalbox telegramBox"><h2>Input Otomatis Telegram</h2><p class="sub">Laporan shift yang dikirim ke Telegram Bot akan masuk otomatis ke Buku Kas. Bot membaca format laporan shift Seblak Story dan mencegah shift yang sama tercatat dua kali.</p>
-<label>Folder Inbox GitHub</label><input id="tgFolder" value="telegram" placeholder="telegram">
-<label>Nama file Inbox</label><input id="tgFile" value="inbox.json" placeholder="inbox.json">
-<label class="checkRow"><input id="tgAuto" type="checkbox"> <span>Aktifkan input otomatis saat aplikasi dibuka</span></label>
+<div class="modal" id="telegramModal"><div class="modalbox telegramBox"><h2>Input Otomatis Telegram</h2><p class="sub">Laporan shift dari Telegram dibaca langsung dari Cloudflare Worker dan dimasukkan ke Buku Kas sebagai <b>Tunai</b> dan <b>Non Tunai</b>. Shift yang sama tidak dicatat dua kali.</p>
+<label>URL Cloudflare Worker</label><input id="tgWorkerUrl" placeholder="https://seblak-story-telegram.s3bl4kstory.workers.dev" autocomplete="off">
+<label>APP API Key</label><input id="tgApiKey" type="password" placeholder="Masukkan APP_API_KEY dari Cloudflare" autocomplete="new-password">
+<label class="checkRow"><input id="tgAuto" type="checkbox"> <span>Sinkron otomatis saat aplikasi dibuka</span></label>
 <div class="tgStatus" id="tgStatus">Belum sinkron.</div>
-<div class="telegramHint">Alur: Telegram → Bot → GitHub → Pembukuan. Bot Telegram tidak menyimpan token di aplikasi; token Bot diletakkan sebagai secret di server/Cloudflare Worker.</div>
-<div class="actions"><button class="primary" onclick="syncTelegramNow(true)">✈ Sinkron Sekarang</button><button onclick="saveTelegramSettings()">Simpan Pengaturan</button><button onclick="closeTelegramSettings()">Tutup</button></div>
+<div class="telegramHint">Alur: Telegram → Bot → Cloudflare Worker → D1 → Pembukuan. Token Bot Telegram tetap berada di Cloudflare Secret. API Key hanya disimpan di perangkat ini.</div>
+<div class="actions"><button class="primary" onclick="syncTelegramNow(true)">☁ Sinkron Sekarang</button><button onclick="saveTelegramSettings()">Simpan Pengaturan</button><button onclick="closeTelegramSettings()">Tutup</button></div>
 </div></div>
 <div class="modal" id="printerModal"><div class="modalbox printerBox"><h2>Pengaturan Printer</h2><p class="sub">Hubungkan printer thermal <b>Bluetooth BLE</b> agar dapat digunakan langsung dari aplikasi.</p>
 <div class="printerStatus" id="printerStatus">Printer belum terhubung.</div>

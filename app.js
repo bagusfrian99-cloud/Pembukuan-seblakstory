@@ -1,5 +1,5 @@
 const KEY="seblak_story_v314";
-const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
+const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v2";
 let telegramTimer=null, telegramBusy=false;
 const GITHUB_SETTINGS_KEY="seblak_story_github_backup_v1";
 let githubBackupTimer=null;
@@ -144,7 +144,7 @@ function base64Unicode(text){
 function githubConfigReady(s){return !!(s.owner&&s.repo&&s.branch&&s.folder&&s.token)}
 function githubApiHeaders(token){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"}}
 function backupPayload(){
-  return {app:"Seblak Story Pembukuan",appVersion:"3.3.17",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+  return {app:"Seblak Story Pembukuan",appVersion:"3.3.22",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
 }
 function githubFileUrl(s,path){return `https://api.github.com/repos/${encodeURIComponent(s.owner)}/${encodeURIComponent(s.repo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`}
 async function githubPutJson(s,path,payload,message){
@@ -513,23 +513,35 @@ function renderReport(){
 
 
 function readTelegramSettings(){
-  try{const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");return x&&typeof x==="object"?{folder:x.folder||"telegram",file:x.file||"inbox.json",auto:!!x.auto,lastSync:x.lastSync||"",lastStatus:x.lastStatus||""}:{folder:"telegram",file:"inbox.json",auto:false,lastSync:"",lastStatus:""}}
-  catch(e){return {folder:"telegram",file:"inbox.json",auto:false,lastSync:"",lastStatus:""}}
+  try{
+    const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");
+    if(x&&typeof x==="object") return {
+      workerUrl:x.workerUrl||"https://seblak-story-telegram.s3bl4kstory.workers.dev",
+      apiKey:x.apiKey||"",
+      auto:!!x.auto,lastSync:x.lastSync||"",lastStatus:x.lastStatus||""
+    };
+    // Migrate old Telegram settings without losing the user's auto-sync choice.
+    const old=JSON.parse(localStorage.getItem("seblak_story_telegram_v1")||"null");
+    return {workerUrl:"https://seblak-story-telegram.s3bl4kstory.workers.dev",apiKey:"",auto:!!old?.auto,lastSync:old?.lastSync||"",lastStatus:old?.lastStatus||""};
+  }catch(e){return {workerUrl:"https://seblak-story-telegram.s3bl4kstory.workers.dev",apiKey:"",auto:false,lastSync:"",lastStatus:""}}
 }
 function saveTelegramSettingsLocal(x){localStorage.setItem(TELEGRAM_SETTINGS_KEY,JSON.stringify(x))}
 function openTelegramSettings(){
-  const s=readTelegramSettings(); $("tgFolder").value=s.folder; $("tgFile").value=s.file; $("tgAuto").checked=s.auto;
-  $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Sinkron terakhir: ${s.lastSync}`:"Belum sinkron."); $("telegramModal").classList.add("show");
+  const s=readTelegramSettings();
+  $("tgWorkerUrl").value=s.workerUrl||""; $("tgApiKey").value=s.apiKey||""; $("tgAuto").checked=s.auto;
+  $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Sinkron terakhir: ${s.lastSync}`:"Belum sinkron.");
+  $("telegramModal").classList.add("show");
 }
 function closeTelegramSettings(){$("telegramModal").classList.remove("show")}
 function saveTelegramSettings(){
-  const old=readTelegramSettings(); const s={...old,folder:( $("tgFolder").value.trim().replace(/^\/+|\/+$/g,"")||"telegram"),file:($("tgFile").value.trim().replace(/^\/+/,"")||"inbox.json"),auto:$('tgAuto').checked};
-  saveTelegramSettingsLocal(s); $("tgStatus").textContent=s.auto?"Pengaturan tersimpan • input Telegram otomatis aktif.":"Pengaturan tersimpan • input otomatis nonaktif.";
+  const old=readTelegramSettings(), s={...old,
+    workerUrl:$("tgWorkerUrl").value.trim().replace(/\/+$/,""),
+    apiKey:$("tgApiKey").value.trim(),auto:$("tgAuto").checked
+  };
+  if(!s.workerUrl)s.workerUrl="https://seblak-story-telegram.s3bl4kstory.workers.dev";
+  saveTelegramSettingsLocal(s); $("tgStatus").textContent=s.auto?"Pengaturan tersimpan • sinkron Telegram otomatis aktif.":"Pengaturan tersimpan • sinkron otomatis nonaktif.";
   if(s.auto)scheduleTelegramSync();
-  appAlert(s.auto?"Input otomatis Telegram diaktifkan. Saat aplikasi dibuka, laporan baru akan disinkronkan.":"Pengaturan Telegram tersimpan.","Input Telegram");
-}
-function telegramInboxUrl(s){
-  const gh=readGitHubSettings(); return githubFileUrl(gh,`${s.folder}/${s.file}`);
+  appAlert(s.auto?"Sinkron Telegram otomatis diaktifkan. Saat aplikasi dibuka, laporan baru akan dibaca dari Cloudflare Worker.":"Pengaturan Telegram tersimpan.","Input Telegram");
 }
 function parseMoneyText(v){
   if(v==null)return 0; const m=String(v).replace(/\s/g,"").replace(/Rp/gi,"").replace(/\./g,"").replace(/,/g,"").match(/-?\d+/); return m?Number(m[0]):0;
@@ -553,20 +565,26 @@ function parseTelegramShift(text){
   return {day,time:tm,cashier,shift:shift.replace(/\s+/g," "),transactions:parseMoneyText(trx),sales:parseMoneyText(sales),cash:parseMoneyText(cash),nonCash:parseMoneyText(noncash),expense:parseMoneyText(expense)};
 }
 async function fetchTelegramInbox(){
-  const gh=readGitHubSettings(), tg=readTelegramSettings();
-  if(!githubConfigReady(gh))throw new Error("Pengaturan GitHub belum lengkap. GitHub dipakai sebagai jembatan inbox Telegram.");
-  const url=telegramInboxUrl(tg), res=await fetch(url+`?ref=${encodeURIComponent(gh.branch)}`,{headers:githubApiHeaders(gh.token),cache:"no-store"});
-  if(res.status===404)return {items:[],sha:null};
-  if(!res.ok){let m="";try{m=(await res.json()).message||""}catch(e){}throw new Error(m||`GitHub inbox gagal (${res.status})`)}
-  const x=await res.json(); let content=""; try{content=atob((x.content||"").replace(/\n/g,""));}catch(e){throw new Error("Isi inbox Telegram di GitHub tidak valid.")}
-  let data; try{data=JSON.parse(decodeURIComponent(escape(content)))}catch(e){try{data=JSON.parse(content)}catch(e2){throw new Error("Format telegram/inbox.json tidak valid.")}}
-  return {items:Array.isArray(data)?data:(Array.isArray(data.items)?data.items:[]),sha:x.sha||null};
+  const tg=readTelegramSettings();
+  if(!tg.workerUrl)throw new Error("URL Cloudflare Worker belum diisi.");
+  if(!tg.apiKey)throw new Error("API Key Cloudflare Worker belum diisi.");
+  const url=tg.workerUrl.replace(/\/+$/,'')+"/api/inbox";
+  const res=await fetch(url,{headers:{"Authorization":"Bearer "+tg.apiKey,"Accept":"application/json"},cache:"no-store"});
+  if(!res.ok){let m="";try{m=(await res.json()).error||""}catch(e){}throw new Error(m||`Cloudflare Worker gagal (${res.status})`)}
+  const x=await res.json();
+  const reports=Array.isArray(x.reports)?x.reports:[];
+  return {items:reports.map(r=>({
+    day:String(r.tanggal||""),shift:String(r.shift||""),cashier:String(r.kasir||""),
+    transactions:Number(r.transaksi)||0,sales:Number(r.penjualan)||0,cash:Number(r.tunai)||0,
+    nonCash:Number(r.non_tunai)||0,expense:Number(r.pengeluaran)||0,saldo:Number(r.saldo)||0,
+    messageId:r.telegram_message_id||null,createdAt:r.created_at||""
+  }))};
 }
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
 function applyTelegramShift(p,sourceMessageId){
   const sid=telegramSourceId(p), stamp=`${p.day}T${p.time||"00:00"}`;
   const rows=[];
-  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}` ,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
+  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
   if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
   if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0});
   let created=0,updated=0;
@@ -582,8 +600,8 @@ async function syncTelegramNow(showMessage=true){
   try{
     const tg=readTelegramSettings(); const inbox=await fetchTelegramInbox(); let created=0,updated=0,ignored=0,seen=0;
     for(const item of inbox.items){
-      if(item?.processed===true)continue;
-      const parsed=parseTelegramShift(item?.text||item?.message||item?.caption||""); if(!parsed){ignored++;continue}
+      if(!item?.shift||!item?.day||(!item?.cash&&!item?.nonCash)) {ignored++;continue}
+      const parsed={day:item.day,time:item.time||"00:00",cashier:item.cashier||"",shift:item.shift,transactions:Number(item.transactions)||0,sales:Number(item.sales)||0,cash:Number(item.cash)||0,nonCash:Number(item.nonCash)||0,expense:Number(item.expense)||0};
       const result=applyTelegramShift(parsed,item?.messageId||item?.id||null); created+=result.created;updated+=result.updated;seen++;
     }
     if(created||updated)persist();
@@ -595,7 +613,7 @@ async function syncTelegramNow(showMessage=true){
   finally{telegramBusy=false}
 }
 function scheduleTelegramSync(){
-  const tg=readTelegramSettings(), gh=readGitHubSettings(); if(!tg.auto||!githubConfigReady(gh))return;
+  const tg=readTelegramSettings(); if(!tg.auto||!tg.workerUrl||!tg.apiKey)return;
   clearTimeout(telegramTimer); telegramTimer=setTimeout(()=>syncTelegramNow(false),1500);
 }
 
@@ -927,7 +945,7 @@ function importPOSBackup(e){
 document.addEventListener("DOMContentLoaded",()=>{
   const gs=readGitHubSettings();
   if(gs.auto && githubConfigReady(gs)) setTimeout(()=>githubBackupNow(false),1200);
-  const tg=readTelegramSettings(); if(tg.auto && githubConfigReady(gs)) setTimeout(()=>syncTelegramNow(false),1800);
+  const tg=readTelegramSettings(); if(tg.auto && tg.workerUrl && tg.apiKey) setTimeout(()=>syncTelegramNow(false),1800);
   const di=$("dashboardDateInput");
   if(di) di.addEventListener("change",e=>setDashboardDate(e.target.value));
 });
