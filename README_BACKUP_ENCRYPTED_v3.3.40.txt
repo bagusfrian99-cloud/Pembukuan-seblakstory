@@ -1,4 +1,4 @@
-Seblak Story Pembukuan v3.3.40 – Backup Terenkripsi
+Seblak Story Pembukuan v3.3.41 – Backup Terenkripsi
 
 FITUR
 - Backup seluruh localStorage aplikasi, termasuk transaksi, stok, pengaturan dan parameter.

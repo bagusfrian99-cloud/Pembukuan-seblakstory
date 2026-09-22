@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.40";
+const APP_VERSION="3.3.42";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -713,7 +713,7 @@ async function checkTelegramNow(showMessage=true){
   }catch(e){const tg=readTelegramSettings();const msg=e?.message||"Cek Telegram gagal.";saveTelegramSettingsLocal({...tg,lastStatus:"Gagal: "+msg});if($("tgStatus"))$("tgStatus").textContent="Gagal: "+msg;if(showMessage)appAlert(msg,"Cek Telegram gagal");}
   finally{telegramBusy=false}
 }
-async function applyTelegramPending(){
+async function updateTelegramNow(){ return checkTelegramNow(true); } async function applyTelegramPending(){
   const tg=readTelegramSettings(), pending=tg.pending; if(!pending||!pending.items?.length){appAlert("Belum ada data Telegram yang siap diterapkan.","Telegram");return;}
   if(telegramBusy)return; telegramBusy=true;
   try{
@@ -871,7 +871,7 @@ function restore(e){
     if(root?.format==="SSB-ENC-1"){
       const pass=prompt("Masukkan password backup untuk memulihkan data:");if(!pass)throw new Error("Restore dibatalkan.");
       payload=await decryptBackupObject(root,pass);
-    }else throw new Error("Backup lama tidak terenkripsi. Untuk keamanan, gunakan backup terenkripsi v3.3.40.");
+    }else throw new Error("Backup lama tidak terenkripsi. Untuk keamanan, gunakan backup terenkripsi v3.3.42.");
     if(!payload?.data||typeof payload.data!=="object")throw new Error("Isi backup tidak valid.");
     Object.keys(payload.data).forEach(k=>localStorage.setItem(k,payload.data[k]));
     store=JSON.parse(localStorage.getItem(KEY)||'{"tx":[]}');
