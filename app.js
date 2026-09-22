@@ -558,12 +558,8 @@ function openTelegramDashboard(){
   if(!modal)return;
   modal.classList.add("show","telegramDashboardMode");
   const s=readTelegramSettings();
-  $("tgStatus").textContent="Memeriksa laporan Telegram...";
-  renderTelegramPreview(null);
-  checkTelegramNow(false).then(()=>{
-    const t=readTelegramSettings();
-    $("tgStatus").textContent=t.lastStatus||"Selesai memeriksa Telegram.";
-  });
+  $("tgStatus").textContent=s.lastStatus||"Tekan Cek Telegram untuk mengambil laporan terbaru.";
+  renderTelegramPreview(s.pending);
 }
 
 function openTelegramSettings(){
@@ -607,7 +603,7 @@ function applyTelegramShift(p,sourceMessageId){
   if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
   if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0,paymentMethod:"Tunai"});
   let created=0,updated=0;
-  for(const r of rows){const existing=store.tx.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else state.transactions.push(rec),created++}
+  for(const r of rows){const existing=store.tx.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else store.tx.push(rec),created++}
   return {created,updated};
 }
 function renderTelegramPreview(pending){
@@ -624,7 +620,8 @@ async function checkTelegramNow(showMessage=true){
     await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
     const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post"]});
     const items=[]; let ignored=0,maxOffset=tg.offset||0;
-    for(const u of updates){maxOffset=Math.max(maxOffset,(u.update_id||0)+1);const info=telegramMessageInfo(u);if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;const parsed=parseTelegramShift(info.text);if(!parsed){ignored++;continue}items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});}
+    const seen=new Set();
+    for(const u of updates){maxOffset=Math.max(maxOffset,(u.update_id||0)+1);const info=telegramMessageInfo(u);if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;const parsed=parseTelegramShift(info.text);if(!parsed){ignored++;continue}const key=telegramSourceId(parsed);if(seen.has(key))continue;seen.add(key);items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});}
     const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID")};
     saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan`});
     renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • belum diterapkan`;
