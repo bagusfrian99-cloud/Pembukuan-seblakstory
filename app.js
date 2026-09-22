@@ -284,7 +284,7 @@ function updateTxNameField(){
   $("expenseNameWrap").style.display=isIncome?"none":"block";
   $("expensePaymentWrap").style.display=isIncome?"none":"block";
 }
-function openTx(id=null){
+function openTx(id=null, forcedType=null){
   $("modal").classList.add("show");
   $("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";
   $("editId").value=id||"";
@@ -294,7 +294,7 @@ function openTx(id=null){
   $("tAmount").value="";
   $("tNote").value="";
   $("tExpensePayment").value="Tunai";
-  $("tType").value="in";
+  $("tType").value=forcedType||"in";
   if(id){
     let x=store.tx.find(a=>a.id==id);
     if(x){

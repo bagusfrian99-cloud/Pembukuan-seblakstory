@@ -26,7 +26,7 @@
   <div class="filterRow"><select id="filterType" onchange="setTxTab(this.value==='out'?'out':this.value==='in'?'in':'all');renderTransactions()"><option value="in">Semua</option><option value="in">Pemasukan</option><option value="out">Pengeluaran</option></select><input type="month" id="kasMonth" onchange="renderTransactions()"></div>
   <div id="kasTotal" class="totalLabel"></div>
   <div id="txCards" class="listCard"></div>
-  <button class="primary big full" id="txAddBtn" onclick="openTx()">＋ Tambah Pemasukan</button>
+  <button class="primary big full" id="txAddBtn" onclick="openTx(null, txTab==='out'?'out':'in')">＋ Tambah Pemasukan</button>
 </section>
 
 <section id="stok" class="page">
