@@ -136,3 +136,10 @@ button:disabled{opacity:.45;cursor:not-allowed}
  .purchaseGauge.mini .gaugeArc{width:23px;height:23px;border-width:4px}
  .purchaseGauge.mini .gaugeNeedle{left:12.5px;top:10px;width:10px}
 }
+/* v3.3.58: proporsional tabel perubahan harga */
+.priceTable th:nth-child(1),.priceTable td:nth-child(1){width:7%}
+.priceTable th:nth-child(2),.priceTable td:nth-child(2){width:18%}
+.priceTable th:nth-child(3),.priceTable td:nth-child(3){width:19%}
+.priceTable th:nth-child(4),.priceTable td:nth-child(4){width:19%}
+.priceTable th:nth-child(5),.priceTable td:nth-child(5){width:17%}
+.priceTable th:nth-child(6),.priceTable td:nth-child(6){width:20%}

@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.57";
+const APP_VERSION="3.3.58";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
