@@ -1,61 +1,38 @@
-# Input Otomatis Telegram - Seblak Story Pembukuan v3.3.17
+# Telegram Langsung - Seblak Story Pembukuan v3.3.28
 
 ## Alur
-Telegram Bot -> Cloudflare Worker -> GitHub `telegram/inbox.json` -> Seblak Story Pembukuan.
+Telegram -> Telegram Bot -> PWA Pembukuan. Tidak memakai GitHub, Cloudflare Worker, atau D1 sebagai perantara.
 
-Aplikasi membaca inbox saat dibuka jika opsi otomatis aktif. Laporan shift yang sama tidak dibuat dua kali karena `Shift + Tanggal` menjadi kunci transaksi.
+PWA melakukan polling `getUpdates` saat aplikasi terbuka. Data yang cocok dengan format LAPORAN SHIFT KASIR langsung disimpan ke Buku Kas lokal. Shift + tanggal menjadi ID untuk mencegah duplikasi.
 
-## 1. Buat Telegram Bot
-Di Telegram buka `@BotFather`, gunakan `/newbot`, lalu simpan token bot secara rahasia.
+## Penting
+- Token bot disimpan di localStorage perangkat dan tidak boleh dibagikan.
+- Karena PWA langsung memanggil Bot API, aplikasi harus sedang dibuka agar pembacaan berjalan. Browser dapat menghentikan polling ketika aplikasi benar-benar ditutup atau dibatasi di latar belakang.
+- Mode langsung menggunakan `getUpdates`, sehingga webhook Telegram lama perlu dilepas. Aplikasi akan menjalankan `deleteWebhook` saat sinkronisasi pertama tanpa menghapus pesan tertunda.
+- Bot hanya menerima pesan yang memang dikirim/diteruskan ke bot atau chat tempat bot memiliki akses. Bot tidak dapat membaca percakapan pribadi dua pengguna yang tidak melibatkan bot.
 
-## 2. Deploy Worker
-Buat Cloudflare Worker baru dan masukkan isi `telegram-worker.js`.
-
-Buat Worker Secrets/Variables:
-- `TELEGRAM_BOT_TOKEN` = token bot (untuk referensi/keamanan; webhook URL tetap dikendalikan Telegram)
-- `TELEGRAM_WEBHOOK_SECRET` = string acak, misalnya `seblak-telegram-2026`
-- `GITHUB_TOKEN` = Fine-grained PAT dengan akses repository tujuan dan `Contents: Read and write`
-- `GITHUB_OWNER` = owner repository, contoh `bagusfrian99-cloud`
-- `GITHUB_REPO` = repository, contoh `Pembukuan-seblakstory`
-- `GITHUB_BRANCH` = `main`
-- `GITHUB_PATH` = `telegram/inbox.json`
-
-## 3. Pasang webhook Telegram
-Setelah Worker memiliki URL HTTPS, panggil Telegram Bot API `setWebhook` dengan URL Worker dan secret token yang sama dengan `TELEGRAM_WEBHOOK_SECRET`.
-
-Contoh menggunakan browser/curl (ganti TOKEN dan URL):
-`https://api.telegram.org/botTOKEN/setWebhook?url=https://WORKER_URL/&secret_token=SEBLak_SECRET`
-
-Jangan masukkan token bot ke source code GitHub Pages.
-
-## 4. Setting aplikasi
-Di Seblak Story Pembukuan:
+## Pengaturan
 Lainnya -> Input Otomatis Telegram
+1. Masukkan Token Telegram Bot.
+2. Chat ID opsional untuk membatasi sumber pesan.
+3. Aktifkan input otomatis.
+4. Tekan Sinkron Sekarang.
 
-Gunakan:
-- Folder Inbox GitHub: `telegram`
-- Nama file Inbox: `inbox.json`
-- Aktifkan input otomatis saat aplikasi dibuka
+## Format
+Tanggal, Shift, Kasir, Transaksi, Penjualan, Cash, Nontunai, Pengeluaran, dan Saldo.
 
-Pengaturan GitHub di aplikasi tetap harus berisi Owner, Repository, Branch dan Fine-grained PAT yang dapat membaca `telegram/inbox.json`.
-
-## 5. Format laporan yang didukung
 Contoh:
-LAPORAN SHIFT KASIR
+```
+📊 LAPORAN SHIFT KASIR
 SEBLAK STORY
-Tanggal: 18/09/2026
+Tanggal: 22/09/2026
 Waktu: 20.52
 Kasir: Anna
-Shift: SH-018
+Shift: SH-022
 Transaksi: 25
-Penjualan: Rp 563.000
-Cash: Rp 471.000
-Nontunai: Rp 92.000
+Penjualan: Rp 650.000
+Cash: Rp 500.000
+Nontunai: Rp 150.000
 Pengeluaran: Rp 0
-Saldo: Rp 471.000
-
-Yang dimasukkan ke Buku Kas:
-- Pemasukan Tunai = Cash
-- Pemasukan Non Tunai = Nontunai
-- Pengeluaran = Pengeluaran
-- Penjualan dan Saldo tidak dibuat sebagai transaksi tambahan agar tidak terjadi hitung ganda.
+Saldo: Rp 500.000
+```

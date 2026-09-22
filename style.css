@@ -40,3 +40,12 @@ table{width:100%;border-collapse:collapse;font-size:10px}th,td{padding:9px 6px;b
 .buyListHead{display:flex;align-items:center;justify-content:space-between;gap:8px}.buyListHead h3{margin:0}.waBuyBtn{border:0;background:#25d366;color:#fff;border-radius:8px;padding:8px 10px;font-weight:900;font-size:10px}.waBuyBtn:active{transform:scale(.98)}
 
 .buyPriceCompare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0;padding:12px;border-radius:14px;background:#fff7cf}.buyPriceCompare>div{display:flex;flex-direction:column;gap:4px}.buyPriceCompare span{font-size:12px;color:#6b7280}.buyPriceCompare b{font-size:15px}.priceDiff.up{color:#dc2626}.priceDiff.down{color:#15803d}.priceDiff.same{color:#374151}
+.tgPreview{border:1px solid #e5e7eb;border-radius:12px;background:#fff;margin:10px 0;max-height:260px;overflow:auto}
+.tgPreviewHead{padding:10px 12px;background:#fff8d8;border-bottom:1px solid #eee2a5;display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.tgPreviewRow{padding:10px 12px;border-bottom:1px solid #eee;line-height:1.4;font-size:12px}
+.tgPreviewRow:last-child{border-bottom:0}
+.tgAmounts{display:flex;flex-wrap:wrap;gap:6px;margin-top:5px;color:#555;font-size:11px}
+.tgAmounts span{background:#f5f7fa;border-radius:8px;padding:4px 7px}
+button:disabled{opacity:.45;cursor:not-allowed}
+
+.dashboardTelegramBtn{width:100%;margin:10px 0 4px;border:0;border-radius:14px;background:#fff;padding:13px;font-weight:800;font-size:14px;box-shadow:0 2px 10px #1f29370b;display:flex;align-items:center;justify-content:center;gap:8px}.dashboardTelegramBtn:active{transform:scale(.99)}

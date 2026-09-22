@@ -549,91 +549,88 @@ function renderReport(){
 
 
 function readTelegramSettings(){
-  try{const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");return x&&typeof x==="object"?{folder:x.folder||"telegram",file:x.file||"inbox.json",auto:!!x.auto,lastSync:x.lastSync||"",lastStatus:x.lastStatus||""}:{folder:"telegram",file:"inbox.json",auto:false,lastSync:"",lastStatus:""}}
-  catch(e){return {folder:"telegram",file:"inbox.json",auto:false,lastSync:"",lastStatus:""}}
+  try{const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");return x&&typeof x==="object"?{token:x.token||"",chatId:x.chatId||"",offset:Number(x.offset||0),lastSync:x.lastSync||"",lastStatus:x.lastStatus||"",pending:x.pending||null}:{token:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null}}
+  catch(e){return {token:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null}}
 }
 function saveTelegramSettingsLocal(x){localStorage.setItem(TELEGRAM_SETTINGS_KEY,JSON.stringify(x))}
 function openTelegramSettings(){
-  const s=readTelegramSettings(); $("tgFolder").value=s.folder; $("tgFile").value=s.file; $("tgAuto").checked=s.auto;
-  $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Sinkron terakhir: ${s.lastSync}`:"Belum sinkron."); $("telegramModal").classList.add("show");
+  const s=readTelegramSettings(); $("tgToken").value=s.token; $("tgChatId").value=s.chatId;
+  $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Pengecekan terakhir: ${s.lastSync}`:"Belum mengecek Telegram.");
+  renderTelegramPreview(s.pending); $("telegramModal").classList.add("show")
 }
 function closeTelegramSettings(){$("telegramModal").classList.remove("show")}
 function saveTelegramSettings(){
-  const old=readTelegramSettings(); const s={...old,folder:( $("tgFolder").value.trim().replace(/^\/+|\/+$/g,"")||"telegram"),file:($("tgFile").value.trim().replace(/^\/+/,"")||"inbox.json"),auto:$('tgAuto').checked};
-  saveTelegramSettingsLocal(s); $("tgStatus").textContent=s.auto?"Pengaturan tersimpan • input Telegram otomatis aktif.":"Pengaturan tersimpan • input otomatis nonaktif.";
-  if(s.auto)scheduleTelegramSync();
-  appAlert(s.auto?"Input otomatis Telegram diaktifkan. Saat aplikasi dibuka, laporan baru akan disinkronkan.":"Pengaturan Telegram tersimpan.","Input Telegram");
+  const old=readTelegramSettings(); const token=$("tgToken").value.trim()||old.token; const chatId=$("tgChatId").value.trim();
+  const s={...old,token,chatId}; saveTelegramSettingsLocal(s);
+  $("tgStatus").textContent="Pengaturan Telegram tersimpan. Gunakan tombol Cek Telegram untuk melihat data sebelum diterapkan.";
+  appAlert("Pengaturan Telegram tersimpan. Tidak ada sinkronisasi otomatis.","Input Telegram");
 }
-function telegramInboxUrl(s){
-  const gh=readGitHubSettings(); return githubFileUrl(gh,`${s.folder}/${s.file}`);
+function telegramApiUrl(token,method){return `https://api.telegram.org/bot${encodeURIComponent(token)}/${method}`}
+async function telegramApi(token,method,body){
+  const res=await fetch(telegramApiUrl(token,method),{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body||{}),cache:"no-store"});
+  let data; try{data=await res.json()}catch(e){throw new Error("Telegram tidak mengembalikan JSON. Periksa koneksi atau izin jaringan browser.")}
+  if(!res.ok||!data.ok)throw new Error(data?.description||`Telegram API gagal (${res.status})`); return data.result;
 }
-function parseMoneyText(v){
-  if(v==null)return 0; const m=String(v).replace(/\s/g,"").replace(/Rp/gi,"").replace(/\./g,"").replace(/,/g,"").match(/-?\d+/); return m?Number(m[0]):0;
+function telegramMessageText(m){return m?.text||m?.caption||m?.message?.text||m?.message?.caption||m?.channel_post?.text||m?.channel_post?.caption||""}
+function telegramMessageInfo(m){
+  const x=m?.message||m?.channel_post||m; return {id:x?.message_id||m?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(m)}
 }
 function parseTelegramShift(text){
-  const t=String(text||"").replace(/\r/g,"");
-  const pick=(re)=>{const m=t.match(re);return m?m[1].trim():""};
-  const date=pick(/(?:Tanggal|Tgl)\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i);
-  const time=pick(/(?:Waktu|Jam)\s*:\s*([0-2]?\d[.:]\d{2})/i);
-  const cashier=pick(/(?:Kasir)\s*:\s*(.+)/i);
-  const shift=pick(/(?:Shift)\s*:\s*([^\n]+)/i);
-  const trx=pick(/(?:Transaksi|Jumlah Transaksi)\s*:\s*([\d.]+)/i);
-  const sales=pick(/(?:Penjualan|Penjualan Total|Total Penjualan)\s*:\s*([^\n]+)/i);
-  const cash=pick(/(?:Cash|Tunai)\s*:\s*([^\n]+)/i);
-  const noncash=pick(/(?:Nontunai|Non Tunai|Non-tunai|NonTunai)\s*:\s*([^\n]+)/i);
-  const expense=pick(/(?:Pengeluaran|Total Pengeluaran)\s*:\s*([^\n]+)/i);
-  if(!date||!shift)return null;
-  const dm=date.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(!dm)return null;
-  const day=`${dm[3]}-${String(dm[2]).padStart(2,"0")}-${String(dm[1]).padStart(2,"0")}`;
-  const tm=(time||"00.00").replace(".",":");
-  return {day,time:tm,cashier,shift:shift.replace(/\s+/g," "),transactions:parseMoneyText(trx),sales:parseMoneyText(sales),cash:parseMoneyText(cash),nonCash:parseMoneyText(noncash),expense:parseMoneyText(expense)};
-}
-async function fetchTelegramInbox(){
-  const gh=readGitHubSettings(), tg=readTelegramSettings();
-  if(!githubConfigReady(gh))throw new Error("Pengaturan GitHub belum lengkap. GitHub dipakai sebagai jembatan inbox Telegram.");
-  const url=telegramInboxUrl(tg), res=await fetch(url+`?ref=${encodeURIComponent(gh.branch)}`,{headers:githubApiHeaders(gh.token),cache:"no-store"});
-  if(res.status===404)return {items:[],sha:null};
-  if(!res.ok){let m="";try{m=(await res.json()).message||""}catch(e){}throw new Error(m||`GitHub inbox gagal (${res.status})`)}
-  const x=await res.json(); let content=""; try{content=atob((x.content||"").replace(/\n/g,""));}catch(e){throw new Error("Isi inbox Telegram di GitHub tidak valid.")}
-  let data; try{data=JSON.parse(decodeURIComponent(escape(content)))}catch(e){try{data=JSON.parse(content)}catch(e2){throw new Error("Format telegram/inbox.json tidak valid.")}}
-  return {items:Array.isArray(data)?data:(Array.isArray(data.items)?data.items:[]),sha:x.sha||null};
+  if(!text||!/LAPORAN\s+SHIFT/i.test(text))return null;
+  const val=(re)=>{const m=text.match(re);return m?m[1].trim():null};
+  const date=val(/Tanggal\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i); const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
+  const cashier=val(/Kasir\s*:\s*([^\r\n]+)/i); const time=val(/Waktu\s*:\s*(\d{1,2}[:.]\d{2})/i);
+  const num=v=>v==null?0:Number(String(v).replace(/[^\d]/g,""))||0;
+  const transactions=num(val(/Transaksi\s*:\s*([^\r\n]+)/i)); const sales=num(val(/Penjualan\s*:\s*([^\r\n]+)/i));
+  const cash=num(val(/Cash\s*:\s*([^\r\n]+)/i)); const nonCash=num(val(/Nontunai\s*:\s*([^\r\n]+)/i));
+  const expense=num(val(/Pengeluaran\s*:\s*([^\r\n]+)/i)); const balance=num(val(/Saldo\s*:\s*([^\r\n]+)/i));
+  if(!date||!shift||(!cash&&!nonCash&&!sales))return null;
+  const [d,mo,y]=date.split('/'); return {day:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
 }
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
 function applyTelegramShift(p,sourceMessageId){
-  const sid=telegramSourceId(p), stamp=`${p.day}T${p.time||"00:00"}`;
-  const rows=[];
-  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}` ,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
+  const sid=telegramSourceId(p), stamp=`${p.day}T${p.time||"00:00"}`; const rows=[];
+  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
   if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
   if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0,paymentMethod:"Tunai"});
   let created=0,updated=0;
-  rows.forEach(r=>{
-    const existing=store.tx.find(x=>x.source==="TELEGRAM_SHIFT"&&x.sourceId===r.sourceId);
-    const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift};
-    if(existing){Object.assign(existing,rec);updated++}else{store.tx.push(rec);created++}
-  });
-  return {created,updated,id:sid};
+  for(const r of rows){const existing=state.transactions.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else state.transactions.push(rec),created++}
+  return {created,updated};
 }
-async function syncTelegramNow(showMessage=true){
+function renderTelegramPreview(pending){
+  const box=$("tgPreview"); if(!box)return;
+  if(!pending||!Array.isArray(pending.items)||!pending.items.length){box.innerHTML='<div class="empty">Belum ada data Telegram yang menunggu diterapkan.</div>'; if($("tgApplyBtn"))$("tgApplyBtn").disabled=true; return;}
+  const rows=pending.items.map((x,i)=>`<div class="tgPreviewRow"><div><b>${esc(x.parsed.shift)}</b> • ${esc(x.parsed.date)}${x.parsed.cashier?` • ${esc(x.parsed.cashier)}`:""}</div><div class="tgAmounts"><span>Tunai ${money(x.parsed.cash)}</span><span>Non Tunai ${money(x.parsed.nonCash)}</span>${x.parsed.expense?`<span>Pengeluaran ${money(x.parsed.expense)}</span>`:""}</div></div>`).join('');
+  box.innerHTML=`<div class="tgPreviewHead"><b>${pending.items.length} laporan siap diperiksa</b><span>Belum masuk Buku Kas</span></div>${rows}`;
+  if($("tgApplyBtn"))$("tgApplyBtn").disabled=false;
+}
+async function checkTelegramNow(showMessage=true){
   if(telegramBusy)return; telegramBusy=true;
   try{
-    const tg=readTelegramSettings(); const inbox=await fetchTelegramInbox(); let created=0,updated=0,ignored=0,seen=0;
-    for(const item of inbox.items){
-      if(item?.processed===true)continue;
-      const parsed=parseTelegramShift(item?.text||item?.message||item?.caption||""); if(!parsed){ignored++;continue}
-      const result=applyTelegramShift(parsed,item?.messageId||item?.id||null); created+=result.created;updated+=result.updated;seen++;
-    }
-    if(created||updated)persist();
-    const now=new Date().toLocaleString("id-ID"); saveTelegramSettingsLocal({...tg,lastSync:now,lastStatus:`${seen} laporan dibaca • ${created} transaksi baru • ${updated} diperbarui • ${ignored} diabaikan`});
-    if($("tgStatus"))$("tgStatus").textContent=`Sinkron terakhir: ${now} • ${created} baru • ${updated} diperbarui`;
-    refresh();
-    if(showMessage)appAlert(`Sinkron Telegram selesai.\n\nLaporan dibaca: ${seen}\nTransaksi baru: ${created}\nTransaksi diperbarui: ${updated}\nDiabaikan: ${ignored}`,"Telegram");
-  }catch(e){const tg=readTelegramSettings();const msg=e?.message||"Sinkron Telegram gagal.";saveTelegramSettingsLocal({...tg,lastStatus:"Gagal: "+msg});if($("tgStatus"))$("tgStatus").textContent="Gagal: "+msg;if(showMessage)appAlert(msg,"Sinkron Telegram gagal");}
+    const tg=readTelegramSettings(); if(!tg.token)throw new Error("Token Telegram Bot belum diisi.");
+    await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
+    const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post"]});
+    const items=[]; let ignored=0,maxOffset=tg.offset||0;
+    for(const u of updates){maxOffset=Math.max(maxOffset,(u.update_id||0)+1);const info=telegramMessageInfo(u);if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;const parsed=parseTelegramShift(info.text);if(!parsed){ignored++;continue}items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});}
+    const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID")};
+    saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan`});
+    renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • belum diterapkan`;
+    if(showMessage)appAlert(`Pengecekan Telegram selesai.\n\nLaporan siap diperiksa: ${items.length}\nDiabaikan: ${ignored}\n\nData belum masuk Buku Kas. Tekan Terapkan ke Pembukuan jika sudah sesuai.`,"Cek Telegram");
+  }catch(e){const tg=readTelegramSettings();const msg=e?.message||"Cek Telegram gagal.";saveTelegramSettingsLocal({...tg,lastStatus:"Gagal: "+msg});if($("tgStatus"))$("tgStatus").textContent="Gagal: "+msg;if(showMessage)appAlert(msg,"Cek Telegram gagal");}
   finally{telegramBusy=false}
 }
-function scheduleTelegramSync(){
-  const tg=readTelegramSettings(), gh=readGitHubSettings(); if(!tg.auto||!githubConfigReady(gh))return;
-  clearTimeout(telegramTimer); telegramTimer=setTimeout(()=>syncTelegramNow(false),1500);
+async function applyTelegramPending(){
+  const tg=readTelegramSettings(), pending=tg.pending; if(!pending||!pending.items?.length){appAlert("Belum ada data Telegram yang siap diterapkan.","Telegram");return;}
+  if(telegramBusy)return; telegramBusy=true;
+  try{
+    let created=0,updated=0; for(const x of pending.items){const r=applyTelegramShift(x.parsed,x.sourceMessageId);created+=r.created;updated+=r.updated;}
+    const now=new Date().toLocaleString("id-ID"); saveTelegramSettingsLocal({...tg,offset:pending.maxOffset,pending:null,lastSync:now,lastStatus:`Diterapkan: ${pending.items.length} laporan • ${created} transaksi baru • ${updated} diperbarui`});
+    persist(); refresh(); renderTelegramPreview(null); $("tgStatus").textContent=`Diterapkan: ${pending.items.length} laporan • ${now}`;
+    appAlert(`Data Telegram berhasil diterapkan.\n\nLaporan: ${pending.items.length}\nTransaksi baru: ${created}\nDiperbarui: ${updated}`,"Telegram");
+  }catch(e){appAlert(e?.message||"Gagal menerapkan data Telegram.","Telegram");}
+  finally{telegramBusy=false}
 }
+function scheduleTelegramSync(){return;}
 
 function printReport(){
   const ps=readPrinterSettings();
@@ -964,7 +961,7 @@ function importPOSBackup(e){
 document.addEventListener("DOMContentLoaded",()=>{
   const gs=readGitHubSettings();
   if(gs.auto && githubConfigReady(gs)) setTimeout(()=>githubBackupNow(false),1200);
-  const tg=readTelegramSettings(); if(tg.auto && githubConfigReady(gs)) setTimeout(()=>syncTelegramNow(false),1800);
+
   const di=$("dashboardDateInput");
   if(di) di.addEventListener("change",e=>setDashboardDate(e.target.value));
 });
