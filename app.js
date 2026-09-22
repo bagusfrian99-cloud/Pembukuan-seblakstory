@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.42";
+const APP_VERSION="3.3.47";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -18,6 +18,7 @@ if(!Array.isArray(stocks)){
   stocks=Array.isArray(legacy)?legacy:[];
 }
 let stockFilter="all";
+let stockSort="name";
 function migrateStockToPack(){
   let changed=false;
   stocks=stocks.map(x=>{
@@ -517,6 +518,10 @@ function setStockFilter(filter){
   document.querySelectorAll('.stockFilters button').forEach(b=>b.classList.toggle('active',b.dataset.filter===stockFilter));
   renderStock();
 }
+function setStockSort(sort){
+  stockSort=sort||"name";
+  renderStock();
+}
 function stockStatusValue(x){
   return x.qty===0?'kurang':x.qty<=x.min?'sedikit':'aman';
 }
@@ -547,23 +552,55 @@ async function shareBuyListWhatsApp(){
   window.open(url,'_blank');
 }
 
+function saveInlineSO(){
+  const inputs=[...document.querySelectorAll('.soInlineInput')];
+  if(!inputs.length)return;
+  let changed=0;
+  for(const input of inputs){
+    const id=Number(input.dataset.soId);
+    const qty=Number(input.value);
+    const x=stocks.find(a=>a.id===id);
+    if(!x || !Number.isFinite(qty) || qty<0) continue;
+    const condition=soCondition(qty,x.min);
+    if(x.qty!==qty || x.lastSO!==qty || x.lastSOCondition!==condition){
+      x.qty=qty; x.lastSO=qty; x.lastSOCondition=condition; changed++;
+    }
+  }
+  persist(); renderStock(); renderDashboard();
+  appAlert(changed?`${changed} stok berhasil diperbarui.`:'Tidak ada perubahan stok.','Stock Opname');
+}
+
 function renderStock(){
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
     if(!x.name.toLowerCase().includes(q)) return false;
     const st=stockStatusValue(x);
+    if(stockFilter==='so') return true;
     if(stockFilter==='beli') return x.qty<=x.min && getBuyListItems().some(b=>b.name===x.name);
     if(stockFilter==='kurang') return st==='kurang';
     if(stockFilter==='sedikit') return st==='sedikit';
     return true;
+  }).sort((a,b)=>{
+    if(stockSort==='stockAsc') return Number(a.qty)-Number(b.qty) || String(a.name).localeCompare(String(b.name),'id');
+    if(stockSort==='stockDesc') return Number(b.qty)-Number(a.qty) || String(a.name).localeCompare(String(b.name),'id');
+    return String(a.name).localeCompare(String(b.name),'id',{sensitivity:'base'});
   });
   const isBuyTab=stockFilter==='beli';
+  const isSOTab=stockFilter==='so';
   $('stockCards').style.display=isBuyTab?'none':'';
   $('buyListPanel').style.display=isBuyTab?'block':'none';
+  if(isSOTab){
+    $('stockCards').innerHTML=r.map(x=>`<div class="soRow"><div class="soName"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div><b>${esc(x.name)}</b><small>Stok sistem: ${x.qty} pack</small></div></div><div class="soInputWrap"><input class="soInlineInput" type="number" min="0" value="${x.qty}" data-so-id="${x.id}" aria-label="Stok fisik ${esc(x.name)}"><span>pack</span></div></div>`).join('')||'<div class="empty">Belum ada bahan.</div>';
+    $('stockCards').insertAdjacentHTML('afterend','<button type="button" class="primary big full soSaveBtn" onclick="saveInlineSO()">✓ Simpan SO</button>');
+    const old=document.querySelector('.soSaveBtn');
+    document.querySelectorAll('.soSaveBtn').forEach((b,i)=>{if(i>0)b.remove()});
+    return;
+  }
+  document.querySelectorAll('.soSaveBtn').forEach(b=>b.remove());
   $('stockCards').innerHTML=r.map(x=>{
     const status=stockStatusValue(x)==='kurang'?'Kurang':stockStatusValue(x)==='sedikit'?'Sisa Sedikit':'Aman';
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
-    return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button><button type="button" onclick="openSO(${x.id})">SO</button></div></div>`;
+    return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button></div></div>`;
   }).join('')||'<div class="empty">Belum ada bahan pada filter ini.</div>';
   const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>{const st=stocks.find(s=>s.name===x.name);return `<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyrowRight"><span class="buyqty">${x.buy} pack</span>${st?`<button type="button" class="buyListBtn" onclick="openBuy(${st.id})">Beli</button>`:''}</span></div>`}).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
 }
