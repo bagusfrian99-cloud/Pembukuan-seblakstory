@@ -62,5 +62,4 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .telegramDashboardMode .tgPreviewRow { font-size:13px; padding:12px; }
 .telegramDashboardMode .telegramDashboardTitle { display:block; }
 .danger{background:#ffe1e1!important;color:#c62828!important;border:1px solid #e06b6b!important;font-weight:900}
-
-.txCard{position:relative}.txActionMenu{position:absolute;right:8px;top:42px;z-index:80;background:#fff;border:1px solid #ddd;border-radius:10px;box-shadow:0 8px 24px #0002;min-width:120px;overflow:hidden}.txActionMenu button{display:block;width:100%;padding:10px 12px;border:0;background:#fff;text-align:left;font-size:12px;font-weight:700}.txActionMenu button+button{border-top:1px solid #eee}.txActionMenu .txDeleteBtn{color:#c62828}
+.txWrap{position:relative}.inlineTxActions{display:flex;gap:8px;padding:7px 10px 9px 58px;background:#fffdf0;border-bottom:1px solid var(--line)}.inlineTxActions[hidden]{display:none}.inlineTxActions button{flex:1;border:1px solid #dfe3e8;background:#fff;border-radius:8px;padding:7px;font-size:11px;font-weight:800}.inlineTxActions .danger{color:#c62828;border-color:#f0bcbc;background:#fff5f5}
