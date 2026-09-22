@@ -552,16 +552,20 @@ function renderStock(){
   const r=stocks.filter(x=>{
     if(!x.name.toLowerCase().includes(q)) return false;
     const st=stockStatusValue(x);
+    if(stockFilter==='beli') return x.qty<=x.min && getBuyListItems().some(b=>b.name===x.name);
     if(stockFilter==='kurang') return st==='kurang';
     if(stockFilter==='sedikit') return st==='sedikit';
     return true;
   });
+  const isBuyTab=stockFilter==='beli';
+  $('stockCards').style.display=isBuyTab?'none':'';
+  $('buyListPanel').style.display=isBuyTab?'block':'none';
   $('stockCards').innerHTML=r.map(x=>{
     const status=stockStatusValue(x)==='kurang'?'Kurang':stockStatusValue(x)==='sedikit'?'Sisa Sedikit':'Aman';
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
     return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button><button type="button" onclick="openSO(${x.id})">SO</button></div></div>`;
   }).join('')||'<div class="empty">Belum ada bahan pada filter ini.</div>';
-  const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyqty">${x.buy} pack</span></div>`).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
+  const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>{const st=stocks.find(s=>s.name===x.name);return `<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyrowRight"><span class="buyqty">${x.buy} pack</span>${st?`<button type="button" class="buyListBtn" onclick="openBuy(${st.id})">Beli</button>`:''}</span></div>`}).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
 }
 
 
