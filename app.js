@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.51";
+const APP_VERSION="3.3.52";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -614,20 +614,34 @@ function renderStock(){
 
 
 let reportApplied={period:"month",month:today().slice(0,7),from:"",to:""};
+let reportMode="finance";
 function ensureReportControls(){
   const p=$("period"),m=$("reportMonth"),f=$("reportFrom"),t=$("reportTo");
   if(!p)return;
   if(!m.value)m.value=today().slice(0,7);
   if(!reportApplied.month)reportApplied.month=m.value||today().slice(0,7);
 }
+function setReportMode(mode){
+  reportMode=mode==='stock'?'stock':'finance';
+  $("reportFinanceTab")?.classList.toggle('active',reportMode==='finance');
+  $("reportStockTab")?.classList.toggle('active',reportMode==='stock');
+  $("reportFinanceView")?.toggleAttribute('hidden',reportMode!=='finance');
+  $("reportStockView")?.toggleAttribute('hidden',reportMode!=='stock');
+  if(reportMode==='stock')renderStockReport(); else renderReport();
+}
+function shareReport(){
+  const text=reportMode==='stock'?buildStockShareText():`Laporan keuangan Seblak Story\n${$("reportFrom")?.value||'-'} s/d ${$("reportTo")?.value||'-'}\nPemasukan: ${$("reportInTop")?.textContent||'-'}\nPengeluaran: ${$("reportOutTop")?.textContent||'-'}\nSaldo/Laba: ${$("reportNetTop")?.textContent||'-'}`;
+  if(navigator.share) navigator.share({title:'Laporan Seblak Story',text}).catch(()=>{}); else appAlert(text,'Share laporan');
+}
 function applyReportFilter(){
+  const fromValue=$("reportFrom").value||"",toValue=$("reportTo").value||"";
   reportApplied={
-    period:$("period").value||"month",
+    period:(fromValue||toValue)?"custom":($("period").value||"month"),
     month:$("reportMonth").value||today().slice(0,7),
-    from:$("reportFrom").value||"",
-    to:$("reportTo").value||""
+    from:fromValue,
+    to:toValue
   };
-  renderReport();
+  if(reportMode==='stock')renderStockReport(); else renderReport();
   appAlert("Filter laporan berhasil diterapkan.","Laporan diperbarui");
 }
 function txDay(x){
@@ -650,6 +664,52 @@ function renderReport(){
   $('reportSummary').innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;
   const chart=$('reportChart'); let html=''; const base=new Date(); for(let i=6;i>=0;i--){const x=new Date();x.setDate(base.getDate()-i);const k=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;const ins=sum(r.filter(t=>txDay(t)===k),'in'),outs=sum(r.filter(t=>txDay(t)===k),'out'),mx=Math.max(ins,outs,1);html+=`<div class="barDay"><div class="bars"><i class="bar inBar" style="height:${Math.max(6,ins/mx*90)}px"></i><i class="bar outBar" style="height:${Math.max(6,outs/mx*90)}px"></i></div><small>${x.getDate()}/${x.getMonth()+1}</small></div>`} chart.innerHTML=html;
   $('reportTable').innerHTML=r.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(x=>`<tr><td>${esc(String(x.date||'').replace('T',' '))}</td><td>${x.type==='in'?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${esc(txPaymentMethod(x))}</td><td>${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
+}
+function reportDateBounds(){
+  const d=today(), p=reportApplied.period||'month';
+  if(p==='today')return {from:d,to:d};
+  if(p==='week'){const x=new Date();x.setHours(0,0,0,0);x.setDate(x.getDate()-13);return {from:x.toISOString().slice(0,10),to:d};}
+  if(p==='month'){const m=reportApplied.month||d.slice(0,7);return {from:`${m}-01`,to:`${m}-${new Date(Number(m.slice(0,4)),Number(m.slice(5,7)),0).getDate()}`};}
+  let from=reportApplied.from||'',to=reportApplied.to||'';if(from&&to&&from>to)[from,to]=[to,from];return {from,to};
+}
+function purchaseRowsForReport(){
+  const {from,to}=reportDateBounds();
+  const all=(store.tx||[]).filter(t=>String(t?.type)==='out'&&/^Pembelian stok - /i.test(String(t?.name||'')));
+  return all.map(t=>{
+    const day=txDay(t),note=String(t.note||'');
+    const packs=Number(note.match(/([\d.,]+)\s*pack/i)?.[1]?.replace(/[^\d]/g,''))||0;
+    const price=Number(note.match(/×\s*Rp\s*([\d.,]+)\s*per pack/i)?.[1]?.replace(/[^\d]/g,''))||((packs&&Number(t.amount))?Number(t.amount)/packs:0);
+    return {...t,day,packs,price};
+  }).filter(t=>(!from||t.day>=from)&&(!to||t.day<=to)&&t.packs>0);
+}
+function purchaseStatusGroups(rows){
+  const map=new Map(stocks.map(x=>[String(x.id),{id:x.id,name:x.name,packs:0}]));
+  stocks.forEach(x=>{ if(!map.has(String(x.id)))map.set(String(x.id),{id:x.id,name:x.name,packs:0}); });
+  rows.forEach(t=>{const name=String(t.name).replace(/^Pembelian stok - /i,'').trim();const found=stocks.find(x=>x.name===name);const key=found?String(found.id):`name:${name}`;if(!map.has(key))map.set(key,{id:found?.id||0,name,packs:0});map.get(key).packs+=t.packs;});
+  const arr=[...map.values()];arr.sort((a,b)=>b.packs-a.packs||a.name.localeCompare(b.name,'id'));
+  const n=arr.length, hot=Math.ceil(n/3), standard=Math.ceil(2*n/3);
+  return arr.map((x,i)=>({...x,status:n===0?'Kurang Laku':i<hot?'Laku Keras':i<standard?'Standart':'Kurang Laku'}));
+}
+function purchaseEmoji(status){return status==='Laku Keras'?'🔥':status==='Standart'?'▥':'◇'}
+function renderStockReport(){
+  ensureReportControls();const rows=purchaseRowsForReport(), groups=purchaseStatusGroups(rows);
+  const counts={"Laku Keras":0,"Standart":0,"Kurang Laku":0};groups.forEach(x=>counts[x.status]++);
+  $('purchaseGroupSummary').innerHTML=`<div class="groupBox hot"><b>🔥 ${counts['Laku Keras']}</b><span>Laku Keras</span></div><div class="groupBox standard"><b>▥ ${counts['Standart']}</b><span>Standart</span></div><div class="groupBox slow"><b>◇ ${counts['Kurang Laku']}</b><span>Kurang Laku</span></div>`;
+  $('stockPurchaseTable').innerHTML=groups.map((x,i)=>{const st=stocks.find(s=>String(s.id)===String(x.id)||s.name===x.name);const opening=Math.max(0,Number(st?.qty||0)-Number(x.packs||0));return `<tr><td>${i+1}</td><td><b>${esc(x.name)}</b></td><td>${opening}</td><td>${x.packs}</td><td>${Number(st?.qty||0)}</td><td><span class="purchaseBadge ${x.status.replace(/\s/g,'').toLowerCase()}">${purchaseEmoji(x.status)} ${x.status}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="empty">Belum ada data stok pada periode ini.</td></tr>';
+  const priceMap=new Map();
+  const {to}=reportDateBounds();
+  const allPurchases=(store.tx||[]).filter(t=>String(t?.type)==='out'&&/^Pembelian stok - /i.test(String(t?.name||''))).map(t=>{const packs=Number(String(t.note||'').match(/([\d.,]+)\s*pack/i)?.[1]?.replace(/[^\d]/g,''))||0;const price=Number(String(t.note||'').match(/×\s*Rp\s*([\d.,]+)\s*per pack/i)?.[1]?.replace(/[^\d]/g,''))||((packs&&Number(t.amount))?Number(t.amount)/packs:0);return {...t,day:txDay(t),packs,price,nameClean:String(t.name).replace(/^Pembelian stok - /i,'').trim()};}).filter(t=>t.packs>0&&t.price>0&&(!to||t.day<=to));
+  rows.forEach(t=>{const n=String(t.name).replace(/^Pembelian stok - /i,'').trim();if(!priceMap.has(n))priceMap.set(n,[]);});
+  for(const t of allPurchases){if(priceMap.has(t.nameClean))priceMap.get(t.nameClean).push(t);}
+  const priceRows=[];for(const [name,list] of priceMap){list.sort((a,b)=>String(a.day).localeCompare(String(b.day))||Number(a.id)-Number(b.id));const latest=list[list.length-1],previous=list.length>1?list[list.length-2]:null;if(latest)priceRows.push({name,previous:previous?.price||0,latest:latest.price,diff:previous?latest.price-previous.price:0,status:previous?(latest.price>previous.price?'Naik':latest.price<previous.price?'Turun':'Tetap'):'Baru'});}
+  const order={Naik:0,Turun:1,Tetap:2,Baru:3};priceRows.sort((a,b)=>order[a.status]-order[b.status]||(a.status==='Naik'?b.diff-a.diff:a.status==='Turun'?a.diff-b.diff:0)||a.name.localeCompare(b.name,'id'));
+  $('stockPriceTable').innerHTML=priceRows.map((x,i)=>{const cls=x.status.toLowerCase();const diff=x.status==='Baru'?'—':(x.diff>0?`+${money(x.diff)}`:x.diff<0?`-${money(Math.abs(x.diff))}`:'Rp 0');return `<tr><td>${i+1}</td><td><b>${esc(x.name)}</b></td><td>${x.previous?money(x.previous):'—'}</td><td>${money(x.latest)}</td><td class="priceDiff ${cls}">${diff}</td><td><span class="priceBadge ${cls}">${x.status==='Naik'?'↑':x.status==='Turun'?'↓':x.status==='Tetap'?'—':'•'} ${x.status}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="empty">Belum ada perubahan harga pada periode ini.</td></tr>';
+}
+function buildStockShareText(){
+  const groups=purchaseStatusGroups(purchaseRowsForReport());const {from,to}=reportDateBounds();const rows=groups.filter(x=>x.packs>0);let s=`📦 LAPORAN STOK\nSEBLAK STORY\n${from||'-'} s/d ${to||'-'}\n\n`;s+=rows.map((x,i)=>`${i+1}. ${x.name} — ${x.packs} pack (${x.status})`).join('\n');return s;
+}
+function exportStockReport(){
+  const rows=purchaseStatusGroups(purchaseRowsForReport()),head=[['No','Nama Bahan','Stok Awal (pack)','Pembelian (pack)','Stok Akhir (pack)','Status Pembelian']];rows.forEach((x,i)=>{const st=stocks.find(s=>String(s.id)===String(x.id)||s.name===x.name);head.push([i+1,x.name,Math.max(0,Number(st?.qty||0)-x.packs),x.packs,Number(st?.qty||0),x.status])});head.push([]);head.push(['No','Nama Bahan','Harga Sebelumnya','Harga Terakhir','Selisih','Status']);const {to}=reportDateBounds();const all=(store.tx||[]).filter(t=>String(t?.type)==='out'&&/^Pembelian stok - /i.test(String(t?.name||''))).map(t=>{const packs=Number(String(t.note||'').match(/([\d.,]+)\s*pack/i)?.[1]?.replace(/[^\d]/g,''))||0;const price=Number(String(t.note||'').match(/×\s*Rp\s*([\d.,]+)\s*per pack/i)?.[1]?.replace(/[^\d]/g,''))||((packs&&Number(t.amount))?Number(t.amount)/packs:0);return {...t,day:txDay(t),packs,price,nameClean:String(t.name).replace(/^Pembelian stok - /i,'').trim()};}).filter(t=>t.packs>0&&t.price>0&&(!to||t.day<=to));const pm={};all.forEach(t=>(pm[t.nameClean]??=[]).push(t));Object.entries(pm).forEach(([name,list],i)=>{list.sort((a,b)=>a.day.localeCompare(b.day)||Number(a.id)-Number(b.id));const l=list.at(-1),p=list.at(-2),d=p?l.price-p.price:0;head.push([i+1,name,p?.price||'',l.price,p?d:'',p?(d>0?'Naik':d<0?'Turun':'Tetap'):'Baru'])});const csv=head.map(a=>a.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(',')).join('\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'}));a.download='laporan-stok-seblak-story.csv';a.click();
 }
 
 

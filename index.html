@@ -40,16 +40,30 @@
 
 <section id="laporan" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Laporan</h2><span></span></div>
-  <div class="reportTabs"><button class="active">Keuangan</button><button>Stok</button></div>
+  <div class="reportTabs"><button id="reportFinanceTab" class="active" onclick="setReportMode('finance')">Keuangan</button><button id="reportStockTab" onclick="setReportMode('stock')">Stok</button></div>
   <div class="dateRange"><input type="date" id="reportFrom"><span>–</span><input type="date" id="reportTo"><button onclick="applyReportFilter()">▣</button></div>
-  <div class="card reportCard"><div class="reportLine"><span>↑ Total Pemasukan</span><b class="green" id="reportInTop">Rp 0</b></div><div class="reportLine"><span>↓ Total Pengeluaran</span><b class="red" id="reportOutTop">Rp 0</b></div><div class="profitBox"><span>Saldo / Laba</span><b id="reportNetTop">Rp 0</b></div><h3>Grafik Keuangan</h3><div id="reportChart" class="chart"></div><div class="reportActions"><button onclick="exportCSV()">▧ Export Excel</button><button onclick="printReport()">▣ Cetak</button><button onclick="appAlert('Bagikan laporan melalui menu berbagi perangkat.','Share')">⇧ Share</button></div></div>
-  <div class="card"><div class="two reportHiddenControls"><select id="period"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select><input type="month" id="reportMonth"></div><div class="actions"><button class="primary applyReport" onclick="applyReportFilter()">✓ Terapkan</button></div><div id="reportSummary"></div></div>
-  <div class="card scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Metode</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+  <div id="reportFinanceView">
+    <div class="card reportCard"><div class="reportLine"><span>↑ Total Pemasukan</span><b class="green" id="reportInTop">Rp 0</b></div><div class="reportLine"><span>↓ Total Pengeluaran</span><b class="red" id="reportOutTop">Rp 0</b></div><div class="profitBox"><span>Saldo / Laba</span><b id="reportNetTop">Rp 0</b></div><h3>Grafik Keuangan</h3><div id="reportChart" class="chart"></div><div class="reportActions"><button onclick="exportCSV()">▧ Export Excel</button><button onclick="printReport()">▣ Cetak</button><button onclick="shareReport()">⇧ Share</button></div></div>
+    <div class="card"><div class="two reportHiddenControls"><select id="period"><option value="today">Hari ini</option><option value="week">14 hari</option><option value="month" selected>Bulan ini</option><option value="custom">Custom</option></select><input type="month" id="reportMonth"></div><div class="actions"><button class="primary applyReport" onclick="applyReportFilter()">✓ Terapkan</button></div><div id="reportSummary"></div></div>
+    <div class="card scroll"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Nama</th><th>Metode</th><th>Jumlah</th></tr></thead><tbody id="reportTable"></tbody></table></div>
+  </div>
+  <div id="reportStockView" class="reportStockView" hidden>
+    <div class="card stockReportCard">
+      <div class="stockReportTitle"><span class="reportIcon">▥</span><div><h3>Ringkasan Pembelian Stok</h3><small>Berdasarkan jumlah pembelian dalam periode</small></div></div>
+      <div id="purchaseGroupSummary" class="purchaseGroupSummary"></div>
+      <div class="reportTableWrap"><table class="stockReportTable"><thead><tr><th>No</th><th>Nama Bahan</th><th>Stok Awal<br>(pack)</th><th>Pembelian<br>(pack)</th><th>Stok Akhir<br>(pack)</th><th>Status Pembelian</th></tr></thead><tbody id="stockPurchaseTable"></tbody></table></div>
+    </div>
+    <div class="card stockReportCard">
+      <div class="stockReportTitle"><span class="reportIcon">◆</span><div><h3>Perubahan Harga Pembelian</h3><small>Harga naik terbesar, lalu turun, harga tetap di paling belakang</small></div></div>
+      <div class="reportTableWrap"><table class="stockReportTable priceTable"><thead><tr><th>No</th><th>Nama Bahan</th><th>Harga Sebelumnya<br>(per pack)</th><th>Harga Terakhir<br>(per pack)</th><th>Selisih</th><th>Status</th></tr></thead><tbody id="stockPriceTable"></tbody></table></div>
+      <div class="reportActions"><button onclick="exportStockReport()">▧ Export Excel</button><button onclick="printReport()">▣ Cetak</button><button onclick="shareReport()">⇧ Share</button></div>
+    </div>
+  </div>
 </section>
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.51</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.52</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
@@ -101,5 +115,5 @@
 </div></div>
 <div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
 <div class="modal" id="txActionModal"><div class="modalbox compact"><h2>Aksi Transaksi</h2><p id="txActionMessage" class="dialogMessage"></p><div class="actions"><button onclick="closeTxActions()">Batal</button><button class="primary" onclick="editSelectedTx()">Edit</button><button class="danger" onclick="deleteSelectedTx()">Hapus</button></div></div></div>
-<script src="app.js?v=3.3.51"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
+<script src="app.js?v=3.3.52"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.3.51").catch(()=>{}));}</script></body></html>
