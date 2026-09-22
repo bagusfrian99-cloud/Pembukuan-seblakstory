@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.62";
+const APP_VERSION="3.3.66";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -542,6 +542,22 @@ function getBuyListItems(){
   }).filter(x=>x.buy>0);
 }
 
+async function printBuyListBLE(){
+  const items=getBuyListItems();
+  if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Cetak Daftar Belanja");}
+  let text="SEBLAK STORY
+DAFTAR BARANG YANG HARUS DIBELI
+================================
+";
+  items.forEach((x,i)=>{
+    const name=String(x.name||"").slice(0,27);
+    text+=`${String(i+1).padStart(2," ")}. ${name}  ${x.buy} pack\n`;
+  });
+  text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";
+  try{await sendReceiptTextBLE(text,"Cetak daftar belanja berhasil");}
+  catch(e){appAlert(e?.message||"Cetak daftar belanja BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak daftar belanja gagal");}
+}
+
 async function shareBuyListWhatsApp(){
   const items=getBuyListItems();
   if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Daftar Belanja");}
@@ -578,19 +594,61 @@ function saveInlineSO(){
   appAlert(changed?`${changed} stok berhasil diperbarui.`:'Tidak ada perubahan stok.','Stock Opname');
 }
 
-function printSOList(){
-  const rows=[...document.querySelectorAll('.soRow')].map(row=>{
-    const name=row.querySelector('.soName b')?.textContent?.trim()||'';
-    const stock=row.querySelector('.soInlineInput')?.value||'0';
-    return {name,stock};
-  }).filter(x=>x.name);
-  const w=window.open('','_blank','width=420,height=700');
-  if(!w)return appAlert('Izinkan pop-up browser untuk mencetak.','Cetak SO');
-  const body=rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.stock)} pack</td></tr>`).join('')||'<tr><td colspan="2">Tidak ada data SO</td></tr>';
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Stok Opname</title><style>@page{size:80mm auto;margin:0}html,body{width:80mm;margin:0;padding:0}body{box-sizing:border-box;padding:3mm 2.5mm;font-family:Arial,sans-serif;color:#000;font-size:14px;line-height:1.2}h2{text-align:center;font-size:19px;margin:0 0 1mm;font-weight:700}.sub{text-align:center;font-size:13px;font-weight:700;margin-bottom:3mm}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:1.8mm 0;border-bottom:1px dashed #000;vertical-align:middle}th{text-align:left;font-size:13px;font-weight:700}th:first-child,td:first-child{width:72%;padding-right:2mm}th:last-child,td:last-child{width:28%;text-align:right;white-space:nowrap;font-weight:700}</style></head><body><h2>STOK OPNAME</h2><div class="sub">Seblak Story</div><table><thead><tr><th>Nama Barang</th><th>Stok</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
-  w.document.close();
-}
+async function printSOList(){
+  try{
+    await ensureBLEPrinter();
+    const rows=[...document.querySelectorAll('.soRow')].map(row=>({
+      name:(row.querySelector('.soName b')?.textContent||'').trim(),
+      qty:(row.querySelector('.soInlineInput')?.value||'0').trim()
+    })).filter(x=>x.name);
+    if(!rows.length){appAlert('Tidak ada data SO untuk dicetak.','Cetak SO');return;}
 
+    // ESC/POS direct print for 80mm thermal printer (no browser print/preview).
+    const enc=new TextEncoder();
+    const bytes=[];
+    const push=(...a)=>bytes.push(...a);
+    const text=t=>push(...enc.encode(t));
+    const cmd=(...a)=>push(...a);
+    const pad=(n)=>' '.repeat(Math.max(0,n));
+    const cleanName=x=>x.replace(/[\r\n\t]+/g,' ').trim();
+    const maxName=30, qtyWidth=10, lineWidth=42;
+
+    cmd(0x1b,0x40);                 // initialize
+    cmd(0x1b,0x61,0x01);            // center
+    cmd(0x1b,0x45,0x01);            // bold
+    cmd(0x1d,0x21,0x11);            // double width + double height
+    text('STOK OPNAME\n');
+    cmd(0x1d,0x21,0x00);            // normal size
+    text('Seblak Story\n');
+    cmd(0x1b,0x45,0x00);
+    text('------------------------------------------\n');
+    cmd(0x1b,0x61,0x00);            // left
+    cmd(0x1b,0x45,0x01);
+    text('Nama Barang'.padEnd(maxName)+ 'Stok'.padStart(qtyWidth) + '\n');
+    cmd(0x1b,0x45,0x00);
+    text('------------------------------------------\n');
+
+    for(const r of rows){
+      let name=cleanName(r.name);
+      if(name.length>maxName) name=name.slice(0,maxName-1)+'…';
+      const qty=`${r.qty} pack`;
+      text(name.padEnd(maxName)+qty.padStart(qtyWidth)+'\n');
+    }
+    text('------------------------------------------\n');
+    cmd(0x1b,0x61,0x01);
+    cmd(0x1b,0x45,0x01);
+    text(`Total: ${rows.length} item\n`);
+    cmd(0x1b,0x45,0x00);
+    text('Terima Kasih\nSeblak Story\n\n\n');
+    cmd(0x1b,0x61,0x00);
+    cmd(0x1d,0x56,0x00);            // full cut (if supported)
+
+    await bleWrite(new Uint8Array(bytes));
+    appAlert(`Cetak SO berhasil dikirim langsung ke printer BLE.\n\n${rows.length} item`,'Cetak berhasil');
+  }catch(e){
+    appAlert(e?.message||'Cetak SO BLE gagal. Hubungkan printer BLE terlebih dahulu.','Cetak SO gagal');
+  }
+}
 function renderStock(){
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
@@ -854,9 +912,8 @@ async function updateTelegramNow(){ return checkTelegramNow(true); } async funct
 function scheduleTelegramSync(){return;}
 
 function printReport(){
-  const ps=readPrinterSettings();
-  if(ps.auto && ps.deviceId){ printReportBLE().catch(e=>appAlert(e?.message||"Cetak BLE gagal. Silakan gunakan printer perangkat.","Cetak gagal")); return; }
-  window.print();
+  const job=reportMode==='stock'?printStockReportBLE:printReportBLE;
+  job().catch(e=>appAlert(e?.message||"Cetak BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak gagal"));
 }
 
 function readPrinterSettings(){
@@ -927,11 +984,33 @@ async function testBLEPrinter(){
   catch(e){appAlert(e?.message||"Test printer gagal.","Test Printer gagal")}
 }
 async function disconnectBLEPrinter(){try{if(blePrinterDevice?.gatt?.connected)blePrinterDevice.gatt.disconnect();}catch(e){} blePrinterCharacteristic=null; blePrinterDevice=null; const el=$("printerStatus");if(el)el.textContent="Printer terputus.";}
+async function sendReceiptTextBLE(text,title="Cetak berhasil"){
+  await ensureBLEPrinter();
+  const encoder=new TextEncoder();
+  await bleWrite(new Uint8Array([0x1b,0x40]));
+  await bleWrite(encoder.encode(text));
+  await bleWrite(new Uint8Array([0x1d,0x56,0x00]));
+  appAlert("Data berhasil dikirim langsung ke printer BLE.",title);
+}
 async function printReportBLE(){
-  await ensureBLEPrinter(); const from=$("reportFrom")?.value||""; const to=$("reportTo")?.value||""; const ins=store.tx.filter(x=>x.type==="in"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to)); const outs=store.tx.filter(x=>x.type==="out"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to)); const ti=ins.reduce((a,x)=>a+Number(x.amount)||0,0),toT=outs.reduce((a,x)=>a+Number(x.amount)||0,0);
-  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from?from:"-")+" s/d "+(to?to:"-")+"\n\nTotal Pemasukan: "+money(ti)+"\nTotal Pengeluaran: "+money(toT)+"\nSaldo / Laba: "+money(ti-toT)+"\n\nTRANSAKSI\n";
-  for(const x of [...ins,...outs].sort((a,b)=>b.date.localeCompare(a.date))) text+=`${x.date.replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${money(x.amount)}\n`;
-  text+="\n\nTerima kasih\n\n\n"; await bleWrite(new Uint8Array([0x1b,0x40])); await bleWrite(new TextEncoder().encode(text)); await bleWrite(new Uint8Array([0x1d,0x56,0x00])); appAlert("Laporan berhasil dikirim ke printer BLE.","Cetak berhasil");
+  const from=$("reportFrom")?.value||"", to=$("reportTo")?.value||"";
+  const ins=store.tx.filter(x=>x.type==="in"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to));
+  const outs=store.tx.filter(x=>x.type==="out"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to));
+  const ti=ins.reduce((a,x)=>a+(Number(x.amount)||0),0), toT=outs.reduce((a,x)=>a+(Number(x.amount)||0),0);
+  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+money(ti)+"\nTotal Pengeluaran: "+money(toT)+"\nSaldo / Laba: "+money(ti-toT)+"\n\nTRANSAKSI\n";
+  for(const x of [...ins,...outs].sort((a,b)=>String(b.date).localeCompare(String(a.date)))) text+=`${String(x.date||'').replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${money(x.amount)}\n`;
+  text+="\nTerima kasih\nSeblak Story\n\n\n";
+  await sendReceiptTextBLE(text,"Cetak laporan berhasil");
+}
+async function printStockReportBLE(){
+  const groups=purchaseStatusGroups(purchaseRowsForReport()).filter(x=>Number(x.packs)>0);
+  const {from,to}=reportDateBounds();
+  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN STOK\n"+(from||"-")+" s/d "+(to||"-")+"\n\n";
+  text+="Nama Barang                 Beli\n";
+  text+="------------------------------\n";
+  for(const x of groups) text+=`${String(x.name).slice(0,25).padEnd(25,' ')} ${String(x.packs).padStart(4,' ')} pack\n`;
+  text+="\nTotal item: "+groups.length+"\n\nTerima kasih\nSeblak Story\n\n\n";
+  await sendReceiptTextBLE(text,"Cetak laporan stok berhasil");
 }
 
 function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Metode","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,txPaymentMethod(x),x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
