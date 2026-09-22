@@ -1,4 +1,4 @@
-# Telegram Langsung - Seblak Story Pembukuan v3.3.29
+# Telegram Langsung - Seblak Story Pembukuan v3.3.30
 
 ## Alur
 Telegram -> Telegram Bot -> PWA Pembukuan. Tidak memakai GitHub, Cloudflare Worker, atau D1 sebagai perantara.

@@ -607,7 +607,7 @@ function applyTelegramShift(p,sourceMessageId){
   if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
   if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0,paymentMethod:"Tunai"});
   let created=0,updated=0;
-  for(const r of rows){const existing=state.transactions.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else state.transactions.push(rec),created++}
+  for(const r of rows){const existing=store.tx.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else state.transactions.push(rec),created++}
   return {created,updated};
 }
 function renderTelegramPreview(pending){
