@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.66";
+const APP_VERSION="3.3.67";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -545,10 +545,7 @@ function getBuyListItems(){
 async function printBuyListBLE(){
   const items=getBuyListItems();
   if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Cetak Daftar Belanja");}
-  let text="SEBLAK STORY
-DAFTAR BARANG YANG HARUS DIBELI
-================================
-";
+  let text="SEBLAK STORY\nDAFTAR BARANG YANG HARUS DIBELI\n================================\n";
   items.forEach((x,i)=>{
     const name=String(x.name||"").slice(0,27);
     text+=`${String(i+1).padStart(2," ")}. ${name}  ${x.buy} pack\n`;
