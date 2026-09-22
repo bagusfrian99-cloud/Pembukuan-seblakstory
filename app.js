@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.58";
+const APP_VERSION="3.3.60";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -578,6 +578,19 @@ function saveInlineSO(){
   appAlert(changed?`${changed} stok berhasil diperbarui.`:'Tidak ada perubahan stok.','Stock Opname');
 }
 
+function printSOList(){
+  const rows=[...document.querySelectorAll('.soRow')].map(row=>{
+    const name=row.querySelector('.soName b')?.textContent?.trim()||'';
+    const stock=row.querySelector('.soInlineInput')?.value||'0';
+    return {name,stock};
+  }).filter(x=>x.name);
+  const w=window.open('','_blank','width=420,height=700');
+  if(!w)return appAlert('Izinkan pop-up browser untuk mencetak.','Cetak SO');
+  const body=rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.stock)} pack</td></tr>`).join('')||'<tr><td colspan="2">Tidak ada data SO</td></tr>';
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Stok Opname</title><style>@page{size:80mm auto;margin:3mm}body{width:74mm;margin:0;font-family:Arial,sans-serif;color:#000;font-size:12px}h2{text-align:center;font-size:15px;margin:0 0 1mm}.sub{text-align:center;font-size:10px;margin-bottom:3mm}table{width:100%;border-collapse:collapse}th,td{padding:2mm 0;border-bottom:1px dashed #000}th{text-align:left;font-size:11px}td:last-child,th:last-child{text-align:right}</style></head><body><h2>STOK OPNAME</h2><div class="sub">Seblak Story</div><table><thead><tr><th>Nama Barang</th><th>Stok</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
+  w.document.close();
+}
+
 function renderStock(){
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
@@ -598,12 +611,14 @@ function renderStock(){
   $('buyListPanel').style.display=isBuyTab?'block':'none';
   if(isSOTab){
     $('stockCards').innerHTML=r.map(x=>`<div class="soRow"><div class="soName"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div><b>${esc(x.name)}</b><small>Stok sistem: ${x.qty} pack</small></div></div><div class="soInputWrap"><input class="soInlineInput" type="number" min="0" value="${x.qty}" data-so-id="${x.id}" aria-label="Stok fisik ${esc(x.name)}"><span>pack</span></div></div>`).join('')||'<div class="empty">Belum ada bahan.</div>';
+    const oldPrint=document.getElementById('soPrintButton'); if(oldPrint) oldPrint.remove(); $('stockCards').insertAdjacentHTML('beforebegin','<button id="soPrintButton" type="button" class="so-print-btn" onclick="printSOList()">🖨️ Cetak SO 80mm</button>');
     $('stockCards').insertAdjacentHTML('afterend','<button type="button" class="primary big full soSaveBtn" onclick="saveInlineSO()">✓ Simpan SO</button>');
     const old=document.querySelector('.soSaveBtn');
     document.querySelectorAll('.soSaveBtn').forEach((b,i)=>{if(i>0)b.remove()});
     return;
   }
   document.querySelectorAll('.soSaveBtn').forEach(b=>b.remove());
+  const oldPrint=document.getElementById('soPrintButton'); if(oldPrint) oldPrint.remove();
   $('stockCards').innerHTML=r.map(x=>{
     const status=stockStatusValue(x)==='kurang'?'Kurang':stockStatusValue(x)==='sedikit'?'Sisa Sedikit':'Aman';
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
