@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.55";
+const APP_VERSION="3.3.57";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -690,12 +690,16 @@ function purchaseStatusGroups(rows){
   const n=arr.length, hot=Math.ceil(n/3), standard=Math.ceil(2*n/3);
   return arr.map((x,i)=>({...x,status:n===0?'Kurang Laku':i<hot?'Laku Keras':i<standard?'Standart':'Kurang Laku'}));
 }
-function purchaseEmoji(status){return status==='Laku Keras'?'🔥':status==='Standart'?'▥':'◇'}
+function purchaseGauge(status,mini=false){
+  const cls=status==='Laku Keras'?'fast':status==='Kurang Laku'?'slow':'standard';
+  const label=status==='Laku Keras'?'FAST':status==='Kurang Laku'?'SLOW':'STANDART';
+  return `<span class="purchaseGauge ${cls}${mini?' mini':''}" title="${status}" aria-label="${status}"><span class="gaugeArc"></span><span class="gaugeNeedle"></span>${mini?'':`<b class="gaugeLabel">${label}</b>`}</span>`;
+}
 function renderStockReport(){
   ensureReportControls();const rows=purchaseRowsForReport(), groups=purchaseStatusGroups(rows);
   const counts={"Laku Keras":0,"Standart":0,"Kurang Laku":0};groups.forEach(x=>counts[x.status]++);
-  $('purchaseGroupSummary').innerHTML=`<div class="groupBox hot"><b>🔥 ${counts['Laku Keras']}</b><span>Laku Keras</span></div><div class="groupBox standard"><b>▥ ${counts['Standart']}</b><span>Standart</span></div><div class="groupBox slow"><b>◇ ${counts['Kurang Laku']}</b><span>Kurang Laku</span></div>`;
-  $('stockPurchaseTable').innerHTML=groups.map((x,i)=>{const st=stocks.find(s=>String(s.id)===String(x.id)||s.name===x.name);const opening=Math.max(0,Number(st?.qty||0)-Number(x.packs||0));return `<tr><td>${i+1}</td><td><b>${esc(x.name)}</b></td><td>${opening}</td><td>${x.packs}</td><td>${Number(st?.qty||0)}</td><td><span class="purchaseBadge ${x.status.replace(/\s/g,'').toLowerCase()}" title="${x.status}" aria-label="${x.status}">${purchaseEmoji(x.status)}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="empty">Belum ada data stok pada periode ini.</td></tr>';
+  $('purchaseGroupSummary').innerHTML=`<div class="groupBox hot">${purchaseGauge('Laku Keras')}<b>${counts['Laku Keras']}</b><span>Laku Keras</span></div><div class="groupBox standard">${purchaseGauge('Standart')}<b>${counts['Standart']}</b><span>Standart</span></div><div class="groupBox slow">${purchaseGauge('Kurang Laku')}<b>${counts['Kurang Laku']}</b><span>Kurang Laku</span></div>`;
+  $('stockPurchaseTable').innerHTML=groups.map((x,i)=>{const st=stocks.find(s=>String(s.id)===String(x.id)||s.name===x.name);const opening=Math.max(0,Number(st?.qty||0)-Number(x.packs||0));return `<tr><td>${i+1}</td><td><b>${esc(x.name)}</b></td><td>${opening}</td><td>${x.packs}</td><td>${Number(st?.qty||0)}</td><td><span class="purchaseBadge ${x.status.replace(/\s/g,'').toLowerCase()}" title="${x.status}" aria-label="${x.status}">${purchaseGauge(x.status,true)}</span></td></tr>`}).join('')||'<tr><td colspan="6" class="empty">Belum ada data stok pada periode ini.</td></tr>';
   const priceMap=new Map();
   const {to}=reportDateBounds();
   const allPurchases=(store.tx||[]).filter(t=>String(t?.type)==='out'&&/^Pembelian stok - /i.test(String(t?.name||''))).map(t=>{const packs=Number(String(t.note||'').match(/([\d.,]+)\s*pack/i)?.[1]?.replace(/[^\d]/g,''))||0;const price=Number(String(t.note||'').match(/×\s*Rp\s*([\d.,]+)\s*per pack/i)?.[1]?.replace(/[^\d]/g,''))||((packs&&Number(t.amount))?Number(t.amount)/packs:0);return {...t,day:txDay(t),packs,price,nameClean:String(t.name).replace(/^Pembelian stok - /i,'').trim()};}).filter(t=>t.packs>0&&t.price>0&&(!to||t.day<=to));

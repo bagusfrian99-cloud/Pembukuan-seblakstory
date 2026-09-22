@@ -93,3 +93,46 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .stockReportTable td:nth-child(2){padding-left:4px}
 .purchaseBadge{font-size:7.5px;padding:3px 4px}
 @media(max-width:420px){.stockReportTable{font-size:9px}.stockReportTable th{font-size:9px;padding:4px 1px}.stockReportTable td{font-size:9px;padding:3px 1px}.purchaseBadge{font-size:7px;padding:2px 3px}}
+
+/* v3.3.56 - indikator pembelian berbentuk speedometer */
+.purchaseGroupSummary .groupBox{position:relative;display:grid;grid-template-columns:56px 1fr;grid-template-rows:auto auto;align-items:center;text-align:left;column-gap:8px;padding:9px 8px;min-height:64px}
+.purchaseGroupSummary .groupBox .purchaseGauge{grid-row:1 / span 2;grid-column:1}
+.purchaseGroupSummary .groupBox>b{grid-column:2;grid-row:1;font-size:18px;line-height:1}
+.purchaseGroupSummary .groupBox>span:not(.purchaseGauge){grid-column:2;grid-row:2;font-size:10px;margin-top:3px}
+.purchaseGauge{position:relative;display:inline-block;width:56px;height:38px;vertical-align:middle;overflow:hidden}
+.purchaseGauge .gaugeArc{position:absolute;left:4px;top:2px;width:48px;height:48px;border:8px solid currentColor;border-bottom-color:transparent;border-radius:50%;box-sizing:border-box;transform:rotate(-45deg)}
+.purchaseGauge .gaugeNeedle{position:absolute;left:27px;top:20px;width:22px;height:2px;background:#20242b;border-radius:3px;transform-origin:0 50%;box-shadow:0 0 0 1px rgba(0,0,0,.03)}
+.purchaseGauge.fast{color:#ef2228}.purchaseGauge.fast .gaugeNeedle{transform:rotate(-25deg)}
+.purchaseGauge.standard{color:#f2b800}.purchaseGauge.standard .gaugeNeedle{transform:rotate(-90deg)}
+.purchaseGauge.slow{color:#18a957}.purchaseGauge.slow .gaugeNeedle{transform:rotate(-155deg)}
+.purchaseGauge .gaugeLabel{position:absolute;left:0;right:0;bottom:0;text-align:center;font-size:7px;line-height:1;font-weight:900;letter-spacing:.2px}
+.purchaseGauge.mini{width:34px;height:24px}
+.purchaseGauge.mini .gaugeArc{left:2px;top:0;width:30px;height:30px;border-width:5px}
+.purchaseGauge.mini .gaugeNeedle{left:17px;top:13px;width:13px;height:1.5px}
+.purchaseGauge.mini.fast .gaugeNeedle{transform:rotate(-25deg)}
+.purchaseGauge.mini.standard .gaugeNeedle{transform:rotate(-90deg)}
+.purchaseGauge.mini.slow .gaugeNeedle{transform:rotate(-155deg)}
+.purchaseBadge{background:transparent!important;padding:0!important;border-radius:0!important}
+@media(max-width:420px){.purchaseGroupSummary .groupBox{grid-template-columns:45px 1fr;min-height:56px;padding:6px 4px;column-gap:5px}.purchaseGauge{width:45px;height:31px}.purchaseGauge .gaugeArc{left:3px;top:1px;width:39px;height:39px;border-width:6px}.purchaseGauge .gaugeNeedle{left:22px;top:16px;width:17px}.purchaseGauge .gaugeLabel{font-size:6px}.purchaseGroupSummary .groupBox>b{font-size:15px}.purchaseGroupSummary .groupBox>span:not(.purchaseGauge){font-size:8px}.purchaseGauge.mini{width:30px;height:22px}.purchaseGauge.mini .gaugeArc{width:27px;height:27px;border-width:5px}.purchaseGauge.mini .gaugeNeedle{left:15px;top:12px;width:11px}}
+/* v3.3.57: compact status column, wider ingredient name, larger table text */
+.stockReportTable{font-size:10.5px}
+.stockReportTable th{font-size:10px;padding:5px 1px}
+.stockReportTable td{font-size:10.5px;padding:4px 1px}
+.stockReportTable th:nth-child(1),.stockReportTable td:nth-child(1){width:6%}
+.stockReportTable th:nth-child(2),.stockReportTable td:nth-child(2){width:48%;font-size:11px}
+.stockReportTable th:nth-child(3),.stockReportTable td:nth-child(3),.stockReportTable th:nth-child(4),.stockReportTable td:nth-child(4),.stockReportTable th:nth-child(5),.stockReportTable td:nth-child(5){width:13%}
+.stockReportTable th:nth-child(6),.stockReportTable td:nth-child(6){width:7%}
+.stockReportTable td:nth-child(2){padding-left:5px}
+.purchaseBadge{padding:0;background:transparent!important}
+.purchaseGauge.mini{width:28px;height:21px}
+.purchaseGauge.mini .gaugeArc{left:1px;top:0;width:26px;height:26px;border-width:4px}
+.purchaseGauge.mini .gaugeNeedle{left:14px;top:11px;width:11px;height:1.5px}
+@media(max-width:420px){
+ .stockReportTable{font-size:10px}
+ .stockReportTable th{font-size:9.5px;padding:4px 1px}
+ .stockReportTable td{font-size:10px;padding:3px 1px}
+ .stockReportTable th:nth-child(2),.stockReportTable td:nth-child(2){font-size:10.5px}
+ .purchaseGauge.mini{width:25px;height:19px}
+ .purchaseGauge.mini .gaugeArc{width:23px;height:23px;border-width:4px}
+ .purchaseGauge.mini .gaugeNeedle{left:12.5px;top:10px;width:10px}
+}
