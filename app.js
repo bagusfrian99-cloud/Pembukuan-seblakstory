@@ -1,5 +1,5 @@
 const KEY="seblak_story_v314";
-const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v2";
+const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
 const GITHUB_SETTINGS_KEY="seblak_story_github_backup_v1";
 let githubBackupTimer=null;
@@ -47,10 +47,15 @@ function normalizeTxData(){
     const n=typeof y.amount==="number"?y.amount:Number(String(y.amount??y.jumlah??0).replace(/[^0-9-]/g,""))||0;
     if(y.amount!==n){y.amount=n;changed=true}
     if(!y.source){y.source="MANUAL";changed=true}
+    const pmRaw=String(y.paymentMethod||"").trim().toLowerCase();
+    const nameRaw=String(y.name||"").trim().toLowerCase();
+    const inferred=pmRaw.includes("non")||nameRaw.includes("non tunai")||nameRaw.includes("nontunai")||Number(y.nonCash||0)>0?"Non Tunai":"Tunai";
+    if(y.paymentMethod!==inferred){y.paymentMethod=inferred;changed=true}
     return y;
   });
   if(changed)persist();
 }
+normalizeTxData();
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
 const today=()=>{
@@ -144,7 +149,7 @@ function base64Unicode(text){
 function githubConfigReady(s){return !!(s.owner&&s.repo&&s.branch&&s.folder&&s.token)}
 function githubApiHeaders(token){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"}}
 function backupPayload(){
-  return {app:"Seblak Story Pembukuan",appVersion:"3.3.22",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+  return {app:"Seblak Story Pembukuan",appVersion:"3.3.17",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
 }
 function githubFileUrl(s,path){return `https://api.github.com/repos/${encodeURIComponent(s.owner)}/${encodeURIComponent(s.repo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`}
 async function githubPutJson(s,path,payload,message){
@@ -277,6 +282,7 @@ function updateTxNameField(){
   const isIncome=$("tType").value==="in";
   $("incomeNameWrap").style.display=isIncome?"block":"none";
   $("expenseNameWrap").style.display=isIncome?"none":"block";
+  $("expensePaymentWrap").style.display=isIncome?"none":"block";
 }
 function openTx(id=null){
   $("modal").classList.add("show");
@@ -287,6 +293,7 @@ function openTx(id=null){
   $("tName").value="";
   $("tAmount").value="";
   $("tNote").value="";
+  $("tExpensePayment").value="Tunai";
   $("tType").value="in";
   if(id){
     let x=store.tx.find(a=>a.id==id);
@@ -297,6 +304,7 @@ function openTx(id=null){
         $("tIncomeName").value=(x.name==="Non Tunai"||x.name==="Nontunai")?"Non Tunai":"Tunai";
       }else{
         $("tName").value=x.name||"";
+        $("tExpensePayment").value=txPaymentMethod(x);
       }
       $("tAmount").value=x.amount;
       $("tNote").value=x.note||"";
@@ -308,27 +316,27 @@ function closeModal(){$("modal").classList.remove("show")}
 function saveTx(){
   const isIncome=$("tType").value==="in";
   let name=isIncome ? $("tIncomeName").value : $("tName").value.trim();
+  const paymentMethod=isIncome ? name : ($("tExpensePayment").value||"Tunai");
   let amount=Number($("tAmount").value),id=$("editId").value;
   if(!name||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
   const date=$("tDate").value||localDT();
   const old=id?store.tx.find(a=>a.id==id):null;
-  let x={
-    id:id?Number(id):Date.now(),
-    type:$("tType").value,
-    date,
-    name,
-    amount,
-    note:$("tNote").value.trim(),
-    source:old?.source||"MANUAL",
-    sourceId:old?.sourceId||null
-  };
+  let x={id:id?Number(id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),source:old?.source||"MANUAL",sourceId:old?.sourceId||null};
   if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);
-  // Transaksi manual disimpan permanen dan langsung tersedia di Laporan.
-  x.source=x.source||"MANUAL";
-  persist();
-  closeModal();
-  refresh();
+  persist(); closeModal(); refresh();
   if(document.getElementById("laporan")?.classList.contains("active")) renderReport();
+}
+
+function txPaymentMethod(x){
+  const raw=String(x?.paymentMethod||"").trim().toLowerCase();
+  if(raw.includes("non"))return "Non Tunai";
+  if(x?.type==="in"){const n=String(x?.name||"").toLowerCase();if(n.includes("non tunai")||n.includes("nontunai")||Number(x?.nonCash||0)>0)return "Non Tunai";}
+  return "Tunai";
+}
+function balanceTotals(){
+  let tunai=0,nonTunai=0;
+  (store.tx||[]).forEach(x=>{const amount=Number(x?.amount||0)||0; if(txPaymentMethod(x)==="Non Tunai") nonTunai += x?.type==="out" ? -amount : amount; else tunai += x?.type==="out" ? -amount : amount;});
+  return {tunai,nonTunai,total:tunai+nonTunai};
 }
 
 function sum(a,t){return a.filter(x=>x.type===t).reduce((s,x)=>s+Number(x.amount||0),0)}
@@ -360,7 +368,10 @@ function renderDashboard(){
   const d=dashboardSelectedDate||today(), m=d.slice(0,7);
   const td=store.tx.filter(x=>txDay(x)===d);
   const mo=store.tx.filter(x=>txDay(x).slice(0,7)===m);
-  $('dSaldo').textContent=money(sum(store.tx,'in')-sum(store.tx,'out'));
+  const bal=balanceTotals();
+  $('dSaldo').textContent=money(bal.total);
+  if($('dCashBalance'))$('dCashBalance').textContent=money(bal.tunai);
+  if($('dNonCashBalance'))$('dNonCashBalance').textContent=money(bal.nonTunai);
   $('dIn').textContent=money(sum(td,'in'));
   $('dOut').textContent=money(sum(td,'out'));
   if($('dCount')) $('dCount').textContent=mo.length;
@@ -386,7 +397,7 @@ function renderTransactions(){
   const q=($('search')?.value||'').toLowerCase(), from=$('from')?.value||'', to=$('to')?.value||'', month=$('kasMonth')?.value||today().slice(0,7); if($('kasMonth')&&!$('kasMonth').value)$('kasMonth').value=month;
   let r=store.tx.filter(x=>(txTab==='all'||x.type===txTab)&&(!q||(x.name+' '+(x.note||'')).toLowerCase().includes(q))&&txDay(x).slice(0,7)===month&&(!from||txDay(x)>=from)&&(!to||txDay(x)<=to)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const total=sum(r,txTab==='out'?'out':'in'); $('kasTotal').innerHTML=`Total ${txTab==='out'?'Pengeluaran':'Pemasukan'} <b>${money(total)}</b>`;
-  $('txCards').innerHTML=r.map(x=>`<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${x.type==='in'?(x.name==='Tunai'?'Tunai':'Non Tunai'):''}</span></div><button class="moreBtn" onclick="openTxActions(${x.id})">⋮</button></div>`).join('')||'<div class="empty">Belum ada transaksi.</div>';
+  $('txCards').innerHTML=r.map(x=>`<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button class="moreBtn" onclick="openTxActions(${x.id})">⋮</button></div>`).join('')||'<div class="empty">Belum ada transaksi.</div>';
 }
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
@@ -508,40 +519,28 @@ function renderReport(){
   ensureReportControls(); let r=reportRows(),i=sum(r,'in'),o=sum(r,'out'); $('reportInTop').textContent=money(i); $('reportOutTop').textContent=money(o); $('reportNetTop').textContent=money(i-o);
   $('reportSummary').innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;
   const chart=$('reportChart'); let html=''; const base=new Date(); for(let i=6;i>=0;i--){const x=new Date();x.setDate(base.getDate()-i);const k=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;const ins=sum(r.filter(t=>txDay(t)===k),'in'),outs=sum(r.filter(t=>txDay(t)===k),'out'),mx=Math.max(ins,outs,1);html+=`<div class="barDay"><div class="bars"><i class="bar inBar" style="height:${Math.max(6,ins/mx*90)}px"></i><i class="bar outBar" style="height:${Math.max(6,outs/mx*90)}px"></i></div><small>${x.getDate()}/${x.getMonth()+1}</small></div>`} chart.innerHTML=html;
-  $('reportTable').innerHTML=r.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(x=>`<tr><td>${esc(String(x.date||'').replace('T',' '))}</td><td>${x.type==='in'?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="4" class="empty">Tidak ada data pada periode ini.</td></tr>';
+  $('reportTable').innerHTML=r.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(x=>`<tr><td>${esc(String(x.date||'').replace('T',' '))}</td><td>${x.type==='in'?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${esc(txPaymentMethod(x))}</td><td>${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
 }
 
 
 function readTelegramSettings(){
-  try{
-    const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");
-    if(x&&typeof x==="object") return {
-      workerUrl:x.workerUrl||"https://seblak-story-telegram.s3bl4kstory.workers.dev",
-      apiKey:x.apiKey||"",
-      auto:!!x.auto,lastSync:x.lastSync||"",lastStatus:x.lastStatus||""
-    };
-    // Migrate old Telegram settings without losing the user's auto-sync choice.
-    const old=JSON.parse(localStorage.getItem("seblak_story_telegram_v1")||"null");
-    return {workerUrl:"https://seblak-story-telegram.s3bl4kstory.workers.dev",apiKey:"",auto:!!old?.auto,lastSync:old?.lastSync||"",lastStatus:old?.lastStatus||""};
-  }catch(e){return {workerUrl:"https://seblak-story-telegram.s3bl4kstory.workers.dev",apiKey:"",auto:false,lastSync:"",lastStatus:""}}
+  try{const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");return x&&typeof x==="object"?{folder:x.folder||"telegram",file:x.file||"inbox.json",auto:!!x.auto,lastSync:x.lastSync||"",lastStatus:x.lastStatus||""}:{folder:"telegram",file:"inbox.json",auto:false,lastSync:"",lastStatus:""}}
+  catch(e){return {folder:"telegram",file:"inbox.json",auto:false,lastSync:"",lastStatus:""}}
 }
 function saveTelegramSettingsLocal(x){localStorage.setItem(TELEGRAM_SETTINGS_KEY,JSON.stringify(x))}
 function openTelegramSettings(){
-  const s=readTelegramSettings();
-  $("tgWorkerUrl").value=s.workerUrl||""; $("tgApiKey").value=s.apiKey||""; $("tgAuto").checked=s.auto;
-  $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Sinkron terakhir: ${s.lastSync}`:"Belum sinkron.");
-  $("telegramModal").classList.add("show");
+  const s=readTelegramSettings(); $("tgFolder").value=s.folder; $("tgFile").value=s.file; $("tgAuto").checked=s.auto;
+  $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Sinkron terakhir: ${s.lastSync}`:"Belum sinkron."); $("telegramModal").classList.add("show");
 }
 function closeTelegramSettings(){$("telegramModal").classList.remove("show")}
 function saveTelegramSettings(){
-  const old=readTelegramSettings(), s={...old,
-    workerUrl:$("tgWorkerUrl").value.trim().replace(/\/+$/,""),
-    apiKey:$("tgApiKey").value.trim(),auto:$("tgAuto").checked
-  };
-  if(!s.workerUrl)s.workerUrl="https://seblak-story-telegram.s3bl4kstory.workers.dev";
-  saveTelegramSettingsLocal(s); $("tgStatus").textContent=s.auto?"Pengaturan tersimpan • sinkron Telegram otomatis aktif.":"Pengaturan tersimpan • sinkron otomatis nonaktif.";
+  const old=readTelegramSettings(); const s={...old,folder:( $("tgFolder").value.trim().replace(/^\/+|\/+$/g,"")||"telegram"),file:($("tgFile").value.trim().replace(/^\/+/,"")||"inbox.json"),auto:$('tgAuto').checked};
+  saveTelegramSettingsLocal(s); $("tgStatus").textContent=s.auto?"Pengaturan tersimpan • input Telegram otomatis aktif.":"Pengaturan tersimpan • input otomatis nonaktif.";
   if(s.auto)scheduleTelegramSync();
-  appAlert(s.auto?"Sinkron Telegram otomatis diaktifkan. Saat aplikasi dibuka, laporan baru akan dibaca dari Cloudflare Worker.":"Pengaturan Telegram tersimpan.","Input Telegram");
+  appAlert(s.auto?"Input otomatis Telegram diaktifkan. Saat aplikasi dibuka, laporan baru akan disinkronkan.":"Pengaturan Telegram tersimpan.","Input Telegram");
+}
+function telegramInboxUrl(s){
+  const gh=readGitHubSettings(); return githubFileUrl(gh,`${s.folder}/${s.file}`);
 }
 function parseMoneyText(v){
   if(v==null)return 0; const m=String(v).replace(/\s/g,"").replace(/Rp/gi,"").replace(/\./g,"").replace(/,/g,"").match(/-?\d+/); return m?Number(m[0]):0;
@@ -565,28 +564,22 @@ function parseTelegramShift(text){
   return {day,time:tm,cashier,shift:shift.replace(/\s+/g," "),transactions:parseMoneyText(trx),sales:parseMoneyText(sales),cash:parseMoneyText(cash),nonCash:parseMoneyText(noncash),expense:parseMoneyText(expense)};
 }
 async function fetchTelegramInbox(){
-  const tg=readTelegramSettings();
-  if(!tg.workerUrl)throw new Error("URL Cloudflare Worker belum diisi.");
-  if(!tg.apiKey)throw new Error("API Key Cloudflare Worker belum diisi.");
-  const url=tg.workerUrl.replace(/\/+$/,'')+"/api/inbox";
-  const res=await fetch(url,{headers:{"Authorization":"Bearer "+tg.apiKey,"Accept":"application/json"},cache:"no-store"});
-  if(!res.ok){let m="";try{m=(await res.json()).error||""}catch(e){}throw new Error(m||`Cloudflare Worker gagal (${res.status})`)}
-  const x=await res.json();
-  const reports=Array.isArray(x.reports)?x.reports:[];
-  return {items:reports.map(r=>({
-    day:String(r.tanggal||""),shift:String(r.shift||""),cashier:String(r.kasir||""),
-    transactions:Number(r.transaksi)||0,sales:Number(r.penjualan)||0,cash:Number(r.tunai)||0,
-    nonCash:Number(r.non_tunai)||0,expense:Number(r.pengeluaran)||0,saldo:Number(r.saldo)||0,
-    messageId:r.telegram_message_id||null,createdAt:r.created_at||""
-  }))};
+  const gh=readGitHubSettings(), tg=readTelegramSettings();
+  if(!githubConfigReady(gh))throw new Error("Pengaturan GitHub belum lengkap. GitHub dipakai sebagai jembatan inbox Telegram.");
+  const url=telegramInboxUrl(tg), res=await fetch(url+`?ref=${encodeURIComponent(gh.branch)}`,{headers:githubApiHeaders(gh.token),cache:"no-store"});
+  if(res.status===404)return {items:[],sha:null};
+  if(!res.ok){let m="";try{m=(await res.json()).message||""}catch(e){}throw new Error(m||`GitHub inbox gagal (${res.status})`)}
+  const x=await res.json(); let content=""; try{content=atob((x.content||"").replace(/\n/g,""));}catch(e){throw new Error("Isi inbox Telegram di GitHub tidak valid.")}
+  let data; try{data=JSON.parse(decodeURIComponent(escape(content)))}catch(e){try{data=JSON.parse(content)}catch(e2){throw new Error("Format telegram/inbox.json tidak valid.")}}
+  return {items:Array.isArray(data)?data:(Array.isArray(data.items)?data.items:[]),sha:x.sha||null};
 }
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
 function applyTelegramShift(p,sourceMessageId){
   const sid=telegramSourceId(p), stamp=`${p.day}T${p.time||"00:00"}`;
   const rows=[];
-  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
+  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}` ,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
   if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
-  if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0});
+  if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0,paymentMethod:"Tunai"});
   let created=0,updated=0;
   rows.forEach(r=>{
     const existing=store.tx.find(x=>x.source==="TELEGRAM_SHIFT"&&x.sourceId===r.sourceId);
@@ -600,8 +593,8 @@ async function syncTelegramNow(showMessage=true){
   try{
     const tg=readTelegramSettings(); const inbox=await fetchTelegramInbox(); let created=0,updated=0,ignored=0,seen=0;
     for(const item of inbox.items){
-      if(!item?.shift||!item?.day||(!item?.cash&&!item?.nonCash)) {ignored++;continue}
-      const parsed={day:item.day,time:item.time||"00:00",cashier:item.cashier||"",shift:item.shift,transactions:Number(item.transactions)||0,sales:Number(item.sales)||0,cash:Number(item.cash)||0,nonCash:Number(item.nonCash)||0,expense:Number(item.expense)||0};
+      if(item?.processed===true)continue;
+      const parsed=parseTelegramShift(item?.text||item?.message||item?.caption||""); if(!parsed){ignored++;continue}
       const result=applyTelegramShift(parsed,item?.messageId||item?.id||null); created+=result.created;updated+=result.updated;seen++;
     }
     if(created||updated)persist();
@@ -613,7 +606,7 @@ async function syncTelegramNow(showMessage=true){
   finally{telegramBusy=false}
 }
 function scheduleTelegramSync(){
-  const tg=readTelegramSettings(); if(!tg.auto||!tg.workerUrl||!tg.apiKey)return;
+  const tg=readTelegramSettings(), gh=readGitHubSettings(); if(!tg.auto||!githubConfigReady(gh))return;
   clearTimeout(telegramTimer); telegramTimer=setTimeout(()=>syncTelegramNow(false),1500);
 }
 
@@ -698,7 +691,7 @@ async function printReportBLE(){
   text+="\n\nTerima kasih\n\n\n"; await bleWrite(new Uint8Array([0x1b,0x40])); await bleWrite(new TextEncoder().encode(text)); await bleWrite(new Uint8Array([0x1d,0x56,0x00])); appAlert("Laporan berhasil dikirim ke printer BLE.","Cetak berhasil");
 }
 
-function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
+function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Metode","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,txPaymentMethod(x),x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
 
 
 
@@ -900,6 +893,7 @@ function importPOSBackup(e){
           name:`Pengeluaran POS - ${String(x.note||"Pengeluaran POS").trim()}`,
           amount,
           note:String(x.note||"Pengeluaran dari POS"),
+          paymentMethod:txPaymentMethod({type:"out",paymentMethod:x?.paymentMethod||x?.method||"Tunai"}),
           shiftId:x.shiftId||null
         };
         if(existingExpenses.has(sourceId)){
@@ -945,7 +939,7 @@ function importPOSBackup(e){
 document.addEventListener("DOMContentLoaded",()=>{
   const gs=readGitHubSettings();
   if(gs.auto && githubConfigReady(gs)) setTimeout(()=>githubBackupNow(false),1200);
-  const tg=readTelegramSettings(); if(tg.auto && tg.workerUrl && tg.apiKey) setTimeout(()=>syncTelegramNow(false),1800);
+  const tg=readTelegramSettings(); if(tg.auto && githubConfigReady(gs)) setTimeout(()=>syncTelegramNow(false),1800);
   const di=$("dashboardDateInput");
   if(di) di.addEventListener("change",e=>setDashboardDate(e.target.value));
 });
