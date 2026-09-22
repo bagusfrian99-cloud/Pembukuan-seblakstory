@@ -589,9 +589,18 @@ function parseTelegramShift(text){
   const val=(re)=>{const m=text.match(re);return m?m[1].trim():null};
   const date=val(/Tanggal\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i); const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
   const cashier=val(/Kasir\s*:\s*([^\r\n]+)/i); const time=val(/Waktu\s*:\s*(\d{1,2}[:.]\d{2})/i);
-  const num=v=>v==null?0:Number(String(v).replace(/[^\d]/g,""))||0;
-  const transactions=num(val(/Transaksi\s*:\s*([^\r\n]+)/i)); const sales=num(val(/Penjualan\s*:\s*([^\r\n]+)/i));
-  const cash=num(val(/Cash\s*:\s*([^\r\n]+)/i)); const nonCash=num(val(/Nontunai\s*:\s*([^\r\n]+)/i));
+  // Ambil angka uang hanya dari bagian nominal sebelum keterangan dalam kurung.
+  // Contoh: "Nontunai: Rp 119.000 (5 transaksi)" harus menjadi 119000, bukan 1190005.
+  const num=v=>{
+    if(v==null)return 0;
+    const m=String(v).match(/(?:Rp\s*)?([0-9][0-9.]*)/i);
+    return m?Number(m[1].replace(/\./g,""))||0:0;
+  };
+  const transactions=0; const sales=num(val(/Penjualan\s*:\s*([^\r\n]+)/i));
+  const cash=num(val(/Cash\s*:\s*([^\r\n]+)/i));
+  // Hanya baca nominal Nontunai. Angka jumlah transaksi dalam kurung diabaikan.
+  const nonCashMatch=text.match(/Nontunai\s*:\s*Rp\s*([0-9][0-9.]*)/i);
+  const nonCash=nonCashMatch?Number(nonCashMatch[1].replace(/\./g,""))||0:0;
   const expense=num(val(/Pengeluaran\s*:\s*([^\r\n]+)/i)); const balance=num(val(/Saldo\s*:\s*([^\r\n]+)/i));
   if(!date||!shift||(!cash&&!nonCash&&!sales))return null;
   const [d,mo,y]=date.split('/'); return {day:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
@@ -621,9 +630,25 @@ async function checkTelegramNow(showMessage=true){
     const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post"]});
     const items=[]; let ignored=0,maxOffset=tg.offset||0;
     const seen=new Set();
-    const applied=new Set((store.tx||[]).filter(x=>x.source==='TELEGRAM_SHIFT'&&x.sourceId).map(x=>String(x.sourceId).replace(/-(CASH|NONCASH|EXP)$/,'')));
     const pendingKeys=new Set();
-    for(const u of updates){maxOffset=Math.max(maxOffset,(u.update_id||0)+1);const info=telegramMessageInfo(u);if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;const parsed=parseTelegramShift(info.text);if(!parsed){ignored++;continue}const key=telegramSourceId(parsed);if(seen.has(key)||applied.has(key)||pendingKeys.has(key))continue;seen.add(key);pendingKeys.add(key);items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});}
+    for(const u of updates){
+      maxOffset=Math.max(maxOffset,(u.update_id||0)+1);
+      const info=telegramMessageInfo(u);
+      if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;
+      const parsed=parseTelegramShift(info.text);
+      if(!parsed){ignored++;continue}
+      const key=telegramSourceId(parsed);
+      if(seen.has(key)||pendingKeys.has(key))continue;
+      // Laporan yang sudah pernah diterapkan hanya ditampilkan lagi bila nominalnya
+      // berbeda, sehingga kesalahan pembacaan lama dapat diperbaiki dengan Terapkan.
+      const rows=(store.tx||[]).filter(x=>x.source==='TELEGRAM_SHIFT' && x.shiftId===parsed.shift && String(x.date||'').slice(0,10)===parsed.day);
+      const existingCash=rows.find(x=>x.sourceId===`${key}-CASH`);
+      const existingNon=rows.find(x=>x.sourceId===`${key}-NONCASH`);
+      const existingExp=rows.find(x=>x.sourceId===`${key}-EXP`);
+      const mismatch=Number(existingCash?.amount||0)!==parsed.cash || Number(existingNon?.amount||0)!==parsed.nonCash || Number(existingExp?.amount||0)!==parsed.expense;
+      if(rows.length && !mismatch)continue;
+      seen.add(key);pendingKeys.add(key);items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});
+    }
     const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID")};
     saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan`});
     renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • belum diterapkan`;
