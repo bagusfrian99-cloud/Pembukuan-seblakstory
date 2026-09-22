@@ -599,11 +599,11 @@ function parseTelegramShift(text){
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
 function applyTelegramShift(p,sourceMessageId){
   const sid=telegramSourceId(p), stamp=`${p.day}T${p.time||"00:00"}`; const rows=[];
-  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
-  if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
+  if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,paymentMethod:"Tunai",note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
+  if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,paymentMethod:"Non Tunai",note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
   if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0,paymentMethod:"Tunai"});
   let created=0,updated=0;
-  for(const r of rows){const existing=store.tx.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else store.tx.push(rec),created++}
+  for(const r of rows){const existing=store.tx.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,paymentMethod:r.paymentMethod||txPaymentMethod(r),note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else store.tx.push(rec),created++}
   return {created,updated};
 }
 function renderTelegramPreview(pending){
@@ -621,7 +621,9 @@ async function checkTelegramNow(showMessage=true){
     const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post"]});
     const items=[]; let ignored=0,maxOffset=tg.offset||0;
     const seen=new Set();
-    for(const u of updates){maxOffset=Math.max(maxOffset,(u.update_id||0)+1);const info=telegramMessageInfo(u);if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;const parsed=parseTelegramShift(info.text);if(!parsed){ignored++;continue}const key=telegramSourceId(parsed);if(seen.has(key))continue;seen.add(key);items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});}
+    const applied=new Set((store.tx||[]).filter(x=>x.source==='TELEGRAM_SHIFT'&&x.sourceId).map(x=>String(x.sourceId).replace(/-(CASH|NONCASH|EXP)$/,'')));
+    const pendingKeys=new Set();
+    for(const u of updates){maxOffset=Math.max(maxOffset,(u.update_id||0)+1);const info=telegramMessageInfo(u);if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;const parsed=parseTelegramShift(info.text);if(!parsed){ignored++;continue}const key=telegramSourceId(parsed);if(seen.has(key)||applied.has(key)||pendingKeys.has(key))continue;seen.add(key);pendingKeys.add(key);items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});}
     const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID")};
     saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan`});
     renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • belum diterapkan`;
@@ -732,14 +734,14 @@ function openTxActions(id){
   appChoice(`Transaksi ${x.name}\n${money(x.amount)}`,[{label:"Batal",value:"cancel"},{label:"Edit",value:"edit",primary:true},{label:"Hapus",value:"delete"}],"Aksi Transaksi").then(v=>{if(v==="edit")openTx(id);if(v==="delete")removeTx(id);});
 }
 function backup(){
-  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.8",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.32",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`SeblakStory-Backup-${today()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function restore(e){
   const file=e.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{try{const root=JSON.parse(reader.result); if(!root?.data)throw new Error("Format backup tidak dikenali."); const raw=root.data[KEY]; const rawStock=root.data[STOCK_KEY]; if(raw)store=typeof raw==="string"?JSON.parse(raw):raw; if(rawStock)stocks=typeof rawStock==="string"?JSON.parse(rawStock):rawStock; migrateStockToPack(); normalizeTxData(); persist(); refresh(); appAlert("Backup berhasil dipulihkan.","Restore berhasil");}catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}}; reader.readAsText(file);
 }
 function clearAll(){appConfirm("Hapus semua transaksi dan stok dari perangkat? Data yang sudah dihapus tidak dapat dikembalikan tanpa backup.","Hapus Semua Data").then(ok=>{if(!ok)return;store={tx:[]};stocks=[];persist();refresh();appAlert("Semua data telah dihapus.","Data dihapus")})}
-function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.17</b></div>`}
+function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.32</b></div>`}
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
