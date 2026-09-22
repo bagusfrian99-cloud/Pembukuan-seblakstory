@@ -729,19 +729,26 @@ function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Metode"
 
 
 
+let selectedTxId=null;
 function openTxActions(id){
   const x=store.tx.find(a=>String(a.id)===String(id)); if(!x)return;
-  appChoice(`Transaksi ${x.name}\n${money(x.amount)}`,[{label:"Batal",value:"cancel"},{label:"Edit",value:"edit",primary:true},{label:"Hapus",value:"delete"}],"Aksi Transaksi").then(v=>{if(v==="edit")openTx(id);if(v==="delete")removeTx(id);});
+  selectedTxId=id;
+  const msg=$("txActionMessage"); if(msg)msg.textContent=`${x.name} • ${money(x.amount)} • ${txPaymentMethod(x)}`;
+  $("txActionModal")?.classList.add("show");
 }
+function closeTxActions(){selectedTxId=null;$("txActionModal")?.classList.remove("show");}
+function editSelectedTx(){const id=selectedTxId;closeTxActions();if(id!==null)openTx(id);}
+function deleteSelectedTx(){const id=selectedTxId;closeTxActions();if(id!==null)removeTx(id);}
+
 function backup(){
-  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.32",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.33",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`SeblakStory-Backup-${today()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function restore(e){
   const file=e.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{try{const root=JSON.parse(reader.result); if(!root?.data)throw new Error("Format backup tidak dikenali."); const raw=root.data[KEY]; const rawStock=root.data[STOCK_KEY]; if(raw)store=typeof raw==="string"?JSON.parse(raw):raw; if(rawStock)stocks=typeof rawStock==="string"?JSON.parse(rawStock):rawStock; migrateStockToPack(); normalizeTxData(); persist(); refresh(); appAlert("Backup berhasil dipulihkan.","Restore berhasil");}catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}}; reader.readAsText(file);
 }
 function clearAll(){appConfirm("Hapus semua transaksi dan stok dari perangkat? Data yang sudah dihapus tidak dapat dikembalikan tanpa backup.","Hapus Semua Data").then(ok=>{if(!ok)return;store={tx:[]};stocks=[];persist();refresh();appAlert("Semua data telah dihapus.","Data dihapus")})}
-function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.32</b></div>`}
+function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.33</b></div>`}
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
