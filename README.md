@@ -121,3 +121,6 @@ Perubahan:
 - Tombol Kirim via WA tetap tersedia di menu Harus Dibeli.
 - Menu Semua, Sisa Sedikit, dan Kurang tetap berfungsi.
 - Cache PWA dinaikkan ke v3.3.44.
+
+
+v3.3.48 - Menghapus filter Sisa Sedikit/Kurang dan menggantinya dengan filter jumlah stok di sebelah kanan Urutkan.
