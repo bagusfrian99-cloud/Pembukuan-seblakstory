@@ -397,7 +397,7 @@ function renderTransactions(){
   const q=($('search')?.value||'').toLowerCase(), from=$('from')?.value||'', to=$('to')?.value||'', month=$('kasMonth')?.value||today().slice(0,7); if($('kasMonth')&&!$('kasMonth').value)$('kasMonth').value=month;
   let r=store.tx.filter(x=>(txTab==='all'||x.type===txTab)&&(!q||(x.name+' '+(x.note||'')).toLowerCase().includes(q))&&txDay(x).slice(0,7)===month&&(!from||txDay(x)>=from)&&(!to||txDay(x)<=to)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const total=sum(r,txTab==='out'?'out':'in'); $('kasTotal').innerHTML=`Total ${txTab==='out'?'Pengeluaran':'Pemasukan'} <b>${money(total)}</b>`;
-  $('txCards').innerHTML=r.map(x=>`<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button class="moreBtn" onclick="openTxActions(${JSON.stringify(String(x.id))})">⋮</button></div>`).join('')||'<div class="empty">Belum ada transaksi.</div>';
+  $('txCards').innerHTML=r.map(x=>`<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button class="moreBtn" onclick="openTxActions(${JSON.stringify(String(x.id))},this)">⋮</button></div>`).join('')||'<div class="empty">Belum ada transaksi.</div>';
 }
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
@@ -730,15 +730,28 @@ function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Metode"
 
 
 let selectedTxId=null;
-function openTxActions(id){
+function closeTxActions(){
+  document.querySelectorAll('.txActionMenu').forEach(el=>el.remove());
+  selectedTxId=null;
+  $("txActionModal")?.classList.remove("show");
+}
+function openTxActions(id,btn){
+  closeTxActions();
   const x=store.tx.find(a=>String(a.id)===String(id)); if(!x)return;
   selectedTxId=id;
-  const msg=$("txActionMessage"); if(msg)msg.textContent=`${x.name} • ${money(x.amount)} • ${txPaymentMethod(x)}`;
-  $("txActionModal")?.classList.add("show");
+  const menu=document.createElement('div');
+  menu.className='txActionMenu';
+  menu.innerHTML='<button type="button" class="txEditBtn">✎ Edit</button><button type="button" class="txDeleteBtn">🗑 Hapus</button>';
+  const host=btn||document.body;
+  if(host===document.body){menu.style.position='fixed';menu.style.right='18px';menu.style.top='50%';}else{host.parentElement.style.position='relative';host.parentElement.appendChild(menu);}
+  menu.querySelector('.txEditBtn').onclick=()=>{closeTxActions();openTx(x.id);};
+  menu.querySelector('.txDeleteBtn').onclick=()=>{closeTxActions();removeTx(x.id);};
+  document.addEventListener('click',function outside(e){
+    if(!menu.contains(e.target) && e.target!==btn){menu.remove();document.removeEventListener('click',outside);selectedTxId=null;}
+  },{once:false});
 }
-function closeTxActions(){selectedTxId=null;$("txActionModal")?.classList.remove("show");}
-function editSelectedTx(){const id=selectedTxId;closeTxActions();if(id!==null)openTx(id);}
-function deleteSelectedTx(){const id=selectedTxId;closeTxActions();if(id!==null)removeTx(id);}
+function editSelectedTx(){if(selectedTxId!==null){const id=selectedTxId;closeTxActions();openTx(id);}}
+function deleteSelectedTx(){if(selectedTxId!==null){const id=selectedTxId;closeTxActions();removeTx(id);}}
 
 function backup(){
   const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.34",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
