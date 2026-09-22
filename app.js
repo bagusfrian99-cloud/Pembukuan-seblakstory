@@ -1,3 +1,4 @@
+const APP_VERSION="3.3.40";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -118,13 +119,15 @@ function readGitHubSettings(){
   }catch(e){return {owner:"",repo:"",branch:"main",folder:"backup",token:"",auto:false,lastBackup:"",lastStatus:""}}
 }
 function saveGitHubSettingsLocal(x){localStorage.setItem(GITHUB_SETTINGS_KEY,JSON.stringify(x))}
+async function updateBackupCryptoStatus(){const el=$("ghCryptoStatus");if(!el)return;try{el.textContent=await hasBackupEncryption()?"🔐 Enkripsi aktif di perangkat ini.":"⚠️ Enkripsi backup belum diaktifkan."}catch(e){el.textContent="Status enkripsi tidak tersedia."}}
+async function setupBackupEncryptionFromUI(){const input=$("ghBackupPassword");const pass=input?.value||"";if(!pass){appAlert("Masukkan password backup minimal 8 karakter.","Password backup");return}try{await prepareBackupEncryption(pass);if(input)input.value="";await updateBackupCryptoStatus();appAlert("Enkripsi backup aktif. Password tidak disimpan di file backup. Simpan password Anda karena diperlukan saat restore di HP lain.","Enkripsi aktif")}catch(e){appAlert(e.message||"Gagal mengaktifkan enkripsi.","Enkripsi gagal")}}
 function openGitHubSettings(){
   const s=readGitHubSettings();
   $("ghOwner").value=s.owner||""; $("ghRepo").value=s.repo||""; $("ghBranch").value=s.branch||"main";
   $("ghFolder").value=s.folder||"backup"; $("ghToken").value=s.token||""; $("ghAuto").checked=!!s.auto;
   const status=s.lastStatus ? `${s.lastStatus}${s.lastBackup?" • "+s.lastBackup:""}` : (s.auto?"Backup otomatis aktif.":"Belum terhubung.");
   $("ghStatus").textContent=status;
-  $("githubModal").classList.add("show");
+  $("githubModal").classList.add("show"); updateBackupCryptoStatus();
 }
 function closeGitHubSettings(){$("githubModal").classList.remove("show")}
 function getGitHubForm(){
@@ -146,11 +149,65 @@ function base64Unicode(text){
   const chunk=0x8000; for(let i=0;i<bytes.length;i+=chunk) binary+=String.fromCharCode(...bytes.subarray(i,i+chunk));
   return btoa(binary);
 }
+
+const BACKUP_CRYPTO_DB="seblak_story_backup_crypto_v1";
+const BACKUP_CRYPTO_STORE="keys";
+function b64FromBytes(bytes){let bin="";const chunk=0x8000;for(let i=0;i<bytes.length;i+=chunk)bin+=String.fromCharCode(...bytes.subarray(i,i+chunk));return btoa(bin)}
+function bytesFromB64(s){const bin=atob(s);const out=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)out[i]=bin.charCodeAt(i);return out}
+function openCryptoDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(BACKUP_CRYPTO_DB,1);r.onupgradeneeded=()=>r.result.createObjectStore(BACKUP_CRYPTO_STORE);r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+async function putLocalCryptoKey(key){const db=await openCryptoDB();return new Promise((resolve,reject)=>{const tx=db.transaction(BACKUP_CRYPTO_STORE,"readwrite");tx.objectStore(BACKUP_CRYPTO_STORE).put(key,"deviceKey");tx.oncomplete=()=>{db.close();resolve()};tx.onerror=()=>{db.close();reject(tx.error)}})}
+async function getLocalCryptoKey(){const db=await openCryptoDB();return new Promise((resolve,reject)=>{const tx=db.transaction(BACKUP_CRYPTO_STORE,"readonly");const r=tx.objectStore(BACKUP_CRYPTO_STORE).get("deviceKey");r.onsuccess=()=>{db.close();resolve(r.result||null)};r.onerror=()=>{db.close();reject(r.error)}})}
+async function deriveWrapKey(password,salt){const base=await crypto.subtle.importKey("raw",new TextEncoder().encode(password),"PBKDF2",false,["deriveKey"]);return crypto.subtle.deriveKey({name:"PBKDF2",salt,iterations:250000,hash:"SHA-256"},base,{name:"AES-KW",length:256},false,["wrapKey","unwrapKey"])}
+async function prepareBackupEncryption(password){
+  if(!password||password.length<8)throw new Error("Password backup minimal 8 karakter.");
+  const key=await crypto.subtle.generateKey({name:"AES-GCM",length:256},true,["encrypt","decrypt"]);
+  const salt=crypto.getRandomValues(new Uint8Array(16));
+  const wrapKey=await deriveWrapKey(password,salt);
+  const wrapped=await crypto.subtle.wrapKey("raw",key,wrapKey,{name:"AES-KW"});
+  await putLocalCryptoKey(key);
+  localStorage.setItem("seblak_story_backup_crypto_meta_v1",JSON.stringify({salt:b64FromBytes(salt),wrappedKey:b64FromBytes(new Uint8Array(wrapped)),updatedAt:new Date().toISOString()}));
+  return true;
+}
+async function hasBackupEncryption(){return !!(await getLocalCryptoKey())}
+async function encryptedBackupObject(){
+  const key=await getLocalCryptoKey();
+  if(!key)throw new Error("Enkripsi backup belum diaktifkan. Masukkan password backup terlebih dahulu.");
+  const plain=JSON.stringify(backupPlainPayload());
+  const iv=crypto.getRandomValues(new Uint8Array(12));
+  const cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(plain));
+  const meta=JSON.parse(localStorage.getItem("seblak_story_backup_crypto_meta_v1")||"null");
+  if(!meta?.salt||!meta?.wrappedKey)throw new Error("Konfigurasi enkripsi backup tidak lengkap. Aktifkan kembali enkripsi backup.");
+  return {format:"SSB-ENC-1",app:"Seblak Story Pembukuan",appVersion:APP_VERSION,encryptedAt:new Date().toISOString(),kdf:"PBKDF2-SHA256-250000",cipher:"AES-256-GCM",salt:meta.salt,wrappedKey:meta.wrappedKey,iv:b64FromBytes(iv),ciphertext:b64FromBytes(new Uint8Array(cipher))};
+}
+async function decryptBackupObject(root,password){
+  if(root?.format!=="SSB-ENC-1")throw new Error("File backup terenkripsi tidak dikenali.");
+  if(!password||password.length<8)throw new Error("Password backup minimal 8 karakter.");
+  const salt=bytesFromB64(root.salt), wrapped=bytesFromB64(root.wrappedKey);
+  const wrapKey=await deriveWrapKey(password,salt);
+  let key; try{key=await crypto.subtle.unwrapKey("raw",wrapped,wrapKey,{name:"AES-KW"},{name:"AES-GCM",length:256},false,["decrypt"])}catch(e){throw new Error("Password backup salah atau backup rusak.")}
+  const iv=bytesFromB64(root.iv), cipher=bytesFromB64(root.ciphertext);
+  let plain; try{plain=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,cipher)}catch(e){throw new Error("Backup tidak dapat didekripsi. Password salah atau file rusak.")}
+  const payload=JSON.parse(new TextDecoder().decode(plain));
+  await putLocalCryptoKey(key);
+  localStorage.setItem("seblak_story_backup_crypto_meta_v1",JSON.stringify({salt:root.salt,wrappedKey:root.wrappedKey,updatedAt:new Date().toISOString()}));
+  return payload;
+}
+function backupPlainPayload(){
+  const all={};
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k)all[k]=localStorage.getItem(k)}
+  return {app:"Seblak Story Pembukuan",appVersion:APP_VERSION,exportedAt:new Date().toISOString(),data:all};
+}
+async function ensureBackupEncryption(){
+  if(await hasBackupEncryption())return true;
+  const pass=prompt("Buat password backup terenkripsi (minimal 8 karakter). Password ini diperlukan saat restore di HP lain:");
+  if(!pass)return false;
+  await prepareBackupEncryption(pass);
+  return true;
+}
+
 function githubConfigReady(s){return !!(s.owner&&s.repo&&s.branch&&s.folder&&s.token)}
 function githubApiHeaders(token){return {"Accept":"application/vnd.github+json","Authorization":"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28","Content-Type":"application/json"}}
-function backupPayload(){
-  return {app:"Seblak Story Pembukuan",appVersion:"3.3.17",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
-}
+async function backupPayload(){return await encryptedBackupObject()}
 function githubFileUrl(s,path){return `https://api.github.com/repos/${encodeURIComponent(s.owner)}/${encodeURIComponent(s.repo)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`}
 async function githubPutJson(s,path,payload,message){
   const url=githubFileUrl(s,path), headers=githubApiHeaders(s.token);
@@ -198,7 +255,7 @@ async function githubBackupNow(showMessage=true){
   githubBackupBusy=true;
   const status=$("ghStatus"); if(status)status.textContent="Mengunggah backup ke GitHub…";
   try{
-    const payload=backupPayload();
+    const payload=await backupPayload();
     const day=today();
     const path=`${s.folder}/backup-${day}.json`;
     await githubPutJson(s,path,payload,`Backup Pembukuan Seblak Story ${day}`);
@@ -798,15 +855,33 @@ function deleteSelectedTx(){if(selectedTxId!==null)deleteTxFromInline(selectedTx
   });
 })();
 
-function backup(){
-  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.37",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
-  const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`SeblakStory-Backup-${today()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+async function backup(){
+  try{
+    if(!(await ensureBackupEncryption()))return;
+    const payload=await encryptedBackupObject();
+    const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`SeblakStory-Backup-Encrypted-${today()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+    appAlert("Backup terenkripsi berhasil dibuat. Semua data dan pengaturan lokal ikut disimpan, termasuk token dalam bentuk terenkripsi.","Backup berhasil");
+  }catch(err){appAlert(err.message||"Backup gagal.","Backup gagal")}
 }
 function restore(e){
-  const file=e.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{try{const root=JSON.parse(reader.result); if(!root?.data)throw new Error("Format backup tidak dikenali."); const raw=root.data[KEY]; const rawStock=root.data[STOCK_KEY]; if(raw)store=typeof raw==="string"?JSON.parse(raw):raw; if(rawStock)stocks=typeof rawStock==="string"?JSON.parse(rawStock):rawStock; migrateStockToPack(); normalizeTxData(); persist(); refresh(); appAlert("Backup berhasil dipulihkan.","Restore berhasil");}catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}}; reader.readAsText(file);
+  const file=e.target.files?.[0];if(!file)return;
+  const reader=new FileReader();reader.onload=async()=>{try{
+    const root=JSON.parse(reader.result);let payload;
+    if(root?.format==="SSB-ENC-1"){
+      const pass=prompt("Masukkan password backup untuk memulihkan data:");if(!pass)throw new Error("Restore dibatalkan.");
+      payload=await decryptBackupObject(root,pass);
+    }else throw new Error("Backup lama tidak terenkripsi. Untuk keamanan, gunakan backup terenkripsi v3.3.40.");
+    if(!payload?.data||typeof payload.data!=="object")throw new Error("Isi backup tidak valid.");
+    Object.keys(payload.data).forEach(k=>localStorage.setItem(k,payload.data[k]));
+    store=JSON.parse(localStorage.getItem(KEY)||'{"tx":[]}');
+    stocks=JSON.parse(localStorage.getItem(STOCK_KEY)||"[]");if(!Array.isArray(stocks))stocks=[];
+    migrateStockToPack();normalizeTxData();persist();refresh();appAlert("Semua data dan pengaturan berhasil dipulihkan, termasuk konfigurasi token yang tersimpan terenkripsi di backup.","Restore berhasil");
+  }catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}};reader.readAsText(file);
 }
+
 function clearAll(){appConfirm("Hapus semua transaksi dan stok dari perangkat? Data yang sudah dihapus tidak dapat dikembalikan tanpa backup.","Hapus Semua Data").then(ok=>{if(!ok)return;store={tx:[]};stocks=[];persist();refresh();appAlert("Semua data telah dihapus.","Data dihapus")})}
-function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.37</b></div>`}
+function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>${APP_VERSION}</b></div>`}
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
