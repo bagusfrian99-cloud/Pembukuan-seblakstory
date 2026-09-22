@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.60";
+const APP_VERSION="3.3.62";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -587,7 +587,7 @@ function printSOList(){
   const w=window.open('','_blank','width=420,height=700');
   if(!w)return appAlert('Izinkan pop-up browser untuk mencetak.','Cetak SO');
   const body=rows.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.stock)} pack</td></tr>`).join('')||'<tr><td colspan="2">Tidak ada data SO</td></tr>';
-  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Stok Opname</title><style>@page{size:80mm auto;margin:3mm}body{width:74mm;margin:0;font-family:Arial,sans-serif;color:#000;font-size:12px}h2{text-align:center;font-size:15px;margin:0 0 1mm}.sub{text-align:center;font-size:10px;margin-bottom:3mm}table{width:100%;border-collapse:collapse}th,td{padding:2mm 0;border-bottom:1px dashed #000}th{text-align:left;font-size:11px}td:last-child,th:last-child{text-align:right}</style></head><body><h2>STOK OPNAME</h2><div class="sub">Seblak Story</div><table><thead><tr><th>Nama Barang</th><th>Stok</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
+  w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Stok Opname</title><style>@page{size:80mm auto;margin:0}html,body{width:80mm;margin:0;padding:0}body{box-sizing:border-box;padding:3mm 2.5mm;font-family:Arial,sans-serif;color:#000;font-size:14px;line-height:1.2}h2{text-align:center;font-size:19px;margin:0 0 1mm;font-weight:700}.sub{text-align:center;font-size:13px;font-weight:700;margin-bottom:3mm}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:1.8mm 0;border-bottom:1px dashed #000;vertical-align:middle}th{text-align:left;font-size:13px;font-weight:700}th:first-child,td:first-child{width:72%;padding-right:2mm}th:last-child,td:last-child{width:28%;text-align:right;white-space:nowrap;font-weight:700}</style></head><body><h2>STOK OPNAME</h2><div class="sub">Seblak Story</div><table><thead><tr><th>Nama Barang</th><th>Stok</th></tr></thead><tbody>${body}</tbody></table><script>window.onload=()=>setTimeout(()=>window.print(),200)<\/script></body></html>`);
   w.document.close();
 }
 
