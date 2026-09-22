@@ -123,4 +123,7 @@ Perubahan:
 - Cache PWA dinaikkan ke v3.3.44.
 
 
-v3.3.48 - Menghapus filter Sisa Sedikit/Kurang dan menggantinya dengan filter jumlah stok di sebelah kanan Urutkan.
+v3.3.49 - Menghapus filter Sisa Sedikit/Kurang dan menggantinya dengan filter jumlah stok di sebelah kanan Urutkan.
+
+
+v3.3.50 - Memperbaiki nomor versi yang tampil pada menu Lainnya agar mengikuti versi aplikasi terbaru. Cache PWA dinaikkan ke v3.3.50.

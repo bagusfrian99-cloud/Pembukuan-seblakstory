@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.48";
+const APP_VERSION="3.3.50";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -20,6 +20,7 @@ if(!Array.isArray(stocks)){
 let stockFilter="all";
 let stockSort="name";
 let stockQtyFilter="all";
+let stockStatusFilter="all";
 function migrateStockToPack(){
   let changed=false;
   stocks=stocks.map(x=>{
@@ -523,19 +524,11 @@ function setStockSort(sort){
   stockSort=sort||"name";
   renderStock();
 }
-function setStockQtyFilter(value){
-  stockQtyFilter=value||"all";
+function setStockStatusFilter(value){
+  stockStatusFilter=value||"all";
   renderStock();
 }
-function renderStockQtyFilter(){
-  const el=$("stockQtyFilter");
-  if(!el)return;
-  const current=String(stockQtyFilter||"all");
-  const values=[...new Set(stocks.map(x=>Math.max(0,Number(x.qty)||0)))].sort((a,b)=>a-b);
-  el.innerHTML='<option value="all">Semua</option>'+values.map(v=>`<option value="${v}">${v} pack</option>`).join("");
-  el.value=values.some(v=>String(v)===current)?current:"all";
-  stockQtyFilter=el.value;
-}
+
 
 function stockStatusValue(x){
   return x.qty===0?'kurang':x.qty<=x.min?'sedikit':'aman';
@@ -586,11 +579,11 @@ function saveInlineSO(){
 }
 
 function renderStock(){
-  renderStockQtyFilter();
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
     if(!x.name.toLowerCase().includes(q)) return false;
-    if(stockQtyFilter!=='all' && Number(x.qty)!==Number(stockQtyFilter)) return false;
+    if(stockStatusFilter==='sedikit' && !(Number(x.qty)>0 && Number(x.qty)<=Number(x.min))) return false;
+    if(stockStatusFilter==='kurang' && Number(x.qty)!==0) return false;
     if(stockFilter==='so') return true;
     if(stockFilter==='beli') return x.qty<=x.min && getBuyListItems().some(b=>b.name===x.name);
     return true;

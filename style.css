@@ -73,4 +73,4 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 .stockSort{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:10px}.stockSort span{font-weight:700}.stockSort select{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px;font-size:10px}
 
-.stockControls{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center}.stockControls .stockSort,.stockControls .stockQtyFilter{min-width:0}.stockQtyFilter{display:flex;align-items:center;gap:6px;font-size:10px}.stockQtyFilter span{font-weight:700}.stockQtyFilter select{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px;font-size:10px}
+.stockControls{display:grid;grid-template-columns:1fr 1fr;gap:8px;align-items:center}.stockControls .stockSort,.stockControls .stockStatusFilter{min-width:0}.stockStatusFilter{display:flex;align-items:center;gap:6px;font-size:10px}.stockStatusFilter span{font-weight:700}.stockStatusFilter select{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px;font-size:10px}
