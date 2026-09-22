@@ -410,10 +410,35 @@ function updateSOCondition(){const qty=Math.max(0,Number($("soQty").value)||0),x
 function openSO(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("soModal").classList.add("show");$("soId").value=id;$("soLabel").textContent=`Stok ${x.name} • Sistem ${x.qty} pack • Minimum ${x.min} pack`;$("soQty").value=x.qty;updateSOCondition()}
 function closeSO(){$("soModal").classList.remove("show")}
 function saveSO(){let id=Number($("soId").value),qty=Number($("soQty").value),x=stocks.find(a=>a.id===id);if(!x||qty<0)return appAlert("Stok fisik tidak boleh negatif.","Data tidak valid");const condition=soCondition(qty,x.min);stocks=stocks.map(a=>a.id===id?{...a,qty,lastSO:qty,lastSOCondition:condition}:a);persist();closeSO();renderStock()}
-function openBuy(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("buyModal").classList.add("show");$("buyId").value=id;$("buyPack").value=1;$("buyPrice").value=0;$("buyLabel").textContent=`Beli ${x.name}`;$("buyInfo").textContent=`Stok sekarang: ${x.qty} pack • Minimum: ${x.min} pack • Isi per pack: ${x.pack}`;updateBuyTotal()}
+function getLastBuyPrice(x){
+  if(x&&Number(x.lastBuyPrice)>0)return Number(x.lastBuyPrice);
+  const prefix=`Pembelian stok - ${String(x?.name||"")}`;
+  for(const t of (store.tx||[]).slice().sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")))){
+    if(String(t?.name||"")!==prefix)continue;
+    const m=String(t?.note||"").match(/×\s*Rp\s*([\d.,]+)\s*per pack/i);
+    if(m){const n=Number(m[1].replace(/[^\d]/g,""));if(n>0)return n;}
+    const packs=Number(String(t?.note||"").match(/([\d.,]+)\s*pack/i)?.[1]?.replace(/[^\d]/g,""))||0;
+    if(packs>0&&Number(t.amount)>0)return Number(t.amount)/packs;
+  }
+  return 0;
+}
+function formatPriceDiff(current,last){
+  if(!last||!current)return "—";
+  const d=current-last;
+  if(d===0)return "Rp 0";
+  return `${d>0?"+":"-"}${money(Math.abs(d))}`;
+}
+function updateBuyPriceInfo(){
+  const id=Number($("buyId").value),x=stocks.find(a=>a.id===id);if(!x)return;
+  const last=getLastBuyPrice(x),current=Number($("buyPrice").value)||0;
+  $("buyLastPrice").textContent=last?money(last):"Belum ada pembelian sebelumnya";
+  $("buyPriceDiff").textContent=formatPriceDiff(current,last);
+  $("buyPriceDiff").className=`priceDiff ${last&&current?(current>last?"up":current<last?"down":"same"):""}`;
+}
+function openBuy(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("buyModal").classList.add("show");$("buyId").value=id;$("buyPack").value=1;const last=getLastBuyPrice(x);$("buyPrice").value=last||0;$("buyLabel").textContent=`Beli ${x.name}`;$("buyInfo").textContent=`Stok sekarang: ${x.qty} pack`;updateBuyTotal();updateBuyPriceInfo()}
 function closeBuy(){$("buyModal").classList.remove("show")}
-function updateBuyTotal(){let packs=Number($("buyPack").value)||0,price=Number($("buyPrice").value)||0;$("buyTotal").textContent=money(packs*price)}
-function saveBuy(){let id=Number($("buyId").value),packs=Number($("buyPack").value),price=Number($("buyPrice").value),x=stocks.find(a=>a.id===id);if(!x||packs<=0)return appAlert("Jumlah pack harus lebih dari 0.","Data tidak valid");if(price<=0)return appAlert("Harga per pack wajib diisi.","Data belum lengkap");let total=packs*price;x.qty+=packs;store.tx.push({id:Date.now(),type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount:total,note:`${packs} pack × ${money(price)} per pack`});persist();closeBuy();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`Pembelian tersimpan. Total ${money(total)} masuk ke Pengeluaran Hari Ini.`,"Pembelian tersimpan")}
+function updateBuyTotal(){let packs=Number($("buyPack").value)||0,price=Number($("buyPrice").value)||0;$("buyTotal").textContent=money(packs*price);updateBuyPriceInfo()}
+function saveBuy(){let id=Number($("buyId").value),packs=Number($("buyPack").value),price=Number($("buyPrice").value),x=stocks.find(a=>a.id===id);if(!x||packs<=0)return appAlert("Jumlah pack harus lebih dari 0.","Data tidak valid");if(price<=0)return appAlert("Harga per pack wajib diisi.","Data belum lengkap");let total=packs*price;x.qty+=packs;x.lastBuyPrice=price;store.tx.push({id:Date.now(),type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount:total,paymentMethod:"Tunai",note:`${packs} pack × ${money(price)} per pack`});persist();closeBuy();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`Pembelian tersimpan. Total ${money(total)} masuk ke Pengeluaran Hari Ini.`,"Pembelian tersimpan")}
 function openEditDelete(id){
   let x=stocks.find(a=>a.id==id); if(!x)return;
   appChoice(`Pilih aksi untuk ${x.name}.`,[
