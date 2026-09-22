@@ -397,7 +397,7 @@ function renderTransactions(){
   const q=($('search')?.value||'').toLowerCase(), from=$('from')?.value||'', to=$('to')?.value||'', month=$('kasMonth')?.value||today().slice(0,7); if($('kasMonth')&&!$('kasMonth').value)$('kasMonth').value=month;
   let r=store.tx.filter(x=>(txTab==='all'||x.type===txTab)&&(!q||(x.name+' '+(x.note||'')).toLowerCase().includes(q))&&txDay(x).slice(0,7)===month&&(!from||txDay(x)>=from)&&(!to||txDay(x)<=to)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
   const total=sum(r,txTab==='out'?'out':'in'); $('kasTotal').innerHTML=`Total ${txTab==='out'?'Pengeluaran':'Pemasukan'} <b>${money(total)}</b>`;
-  $('txCards').innerHTML=r.map(x=>`<div class="txWrap"><div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button type="button" class="moreBtn" onclick="toggleTxActions(this, ${JSON.stringify(String(x.id))})">⋮</button></div><div class="inlineTxActions" hidden><button type="button" onclick="editTxFromInline(${JSON.stringify(String(x.id))})">✎ Edit</button><button type="button" class="danger" onclick="deleteTxFromInline(${JSON.stringify(String(x.id))})">🗑 Hapus</button></div></div>`).join('')||'<div class="empty">Belum ada transaksi.</div>';
+  $('txCards').innerHTML=r.map(x=>{const xid=esc(String(x.id));return `<div class="txWrap" data-tx-id="${xid}"><div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button><button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div></div>`}).join('')||'<div class="empty">Belum ada transaksi.</div>';
 }
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
@@ -731,11 +731,12 @@ function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Metode"
 
 let selectedTxId=null;
 function toggleTxActions(btn,id){
-  const wrap=btn.closest('.txWrap');
+  const wrap=btn?.closest?.('.txWrap');
   if(!wrap)return;
   const menu=wrap.querySelector('.inlineTxActions');
-  document.querySelectorAll('.inlineTxActions').forEach(m=>{if(m!==menu)m.hidden=true;});
-  if(menu)menu.hidden=!menu.hidden;
+  document.querySelectorAll('#txCards .inlineTxActions').forEach(m=>{if(m!==menu)m.hidden=true;});
+  if(menu) menu.hidden = !menu.hidden;
+  selectedTxId=String(id);
 }
 function editTxFromInline(id){
   const x=store.tx.find(a=>String(a.id)===String(id));
@@ -748,23 +749,39 @@ function deleteTxFromInline(id){
   removeTx(id);
 }
 function openTxActions(id){
-  // kompatibilitas lama: gunakan aksi inline
-  const btn=document.querySelector(`.moreBtn[onclick*="${String(id).replace(/"/g,'\\"')}"]`);
+  const btn=document.querySelector(`.txActionBtn[data-tx-id="${CSS.escape(String(id))}"]`);
   if(btn)toggleTxActions(btn,id);
 }
-function closeTxActions(){document.querySelectorAll('.inlineTxActions').forEach(m=>m.hidden=true);selectedTxId=null;}
+function closeTxActions(){document.querySelectorAll('#txCards .inlineTxActions').forEach(m=>m.hidden=true);selectedTxId=null;}
 function editSelectedTx(){if(selectedTxId!==null)editTxFromInline(selectedTxId);}
 function deleteSelectedTx(){if(selectedTxId!==null)deleteTxFromInline(selectedTxId);}
 
+// Delegated touch/click handling: works reliably on mobile PWA and for every rendered transaction.
+(function initTransactionActions(){
+  const root=$('txCards');
+  if(!root || root.dataset.actionsReady==='1') return;
+  root.dataset.actionsReady='1';
+  root.addEventListener('click',e=>{
+    const action=e.target.closest('.txActionBtn,.txEditBtn,.txDeleteBtn');
+    if(!action || !root.contains(action)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const id=action.dataset.txId;
+    if(action.classList.contains('txActionBtn')) toggleTxActions(action,id);
+    else if(action.classList.contains('txEditBtn')) editTxFromInline(id);
+    else if(action.classList.contains('txDeleteBtn')) deleteTxFromInline(id);
+  });
+})();
+
 function backup(){
-  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.36",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
+  const payload={app:"Seblak Story Pembukuan",appVersion:"3.3.37",exportedAt:new Date().toISOString(),data:{[KEY]:JSON.stringify(store),[STOCK_KEY]:JSON.stringify(stocks)}};
   const blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"}); const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=`SeblakStory-Backup-${today()}.json`; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
 function restore(e){
   const file=e.target.files?.[0]; if(!file)return; const reader=new FileReader(); reader.onload=()=>{try{const root=JSON.parse(reader.result); if(!root?.data)throw new Error("Format backup tidak dikenali."); const raw=root.data[KEY]; const rawStock=root.data[STOCK_KEY]; if(raw)store=typeof raw==="string"?JSON.parse(raw):raw; if(rawStock)stocks=typeof rawStock==="string"?JSON.parse(rawStock):rawStock; migrateStockToPack(); normalizeTxData(); persist(); refresh(); appAlert("Backup berhasil dipulihkan.","Restore berhasil");}catch(err){appAlert(err.message||"File backup tidak valid.","Restore gagal")}finally{e.target.value=""}}; reader.readAsText(file);
 }
 function clearAll(){appConfirm("Hapus semua transaksi dan stok dari perangkat? Data yang sudah dihapus tidak dapat dikembalikan tanpa backup.","Hapus Semua Data").then(ok=>{if(!ok)return;store={tx:[]};stocks=[];persist();refresh();appAlert("Semua data telah dihapus.","Data dihapus")})}
-function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.36</b></div>`}
+function renderInfo(){const el=$("dataInfo");if(el)el.innerHTML=`<div class="report"><span>Transaksi</span><b>${store.tx.length}</b></div><div class="report"><span>Stok bahan</span><b>${stocks.length}</b></div><div class="report"><span>Versi</span><b>3.3.37</b></div>`}
 
 const POS_SYNC_KEY="seblak_story_pos_sync_v3";
 
