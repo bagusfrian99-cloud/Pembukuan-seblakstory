@@ -17,7 +17,7 @@
   <div class="balanceSplit"><div class="balanceMini cash"><small>Saldo Tunai</small><strong id="dCashBalance">Rp 0</strong></div><div class="balanceMini noncash"><small>Saldo Non Tunai</small><strong id="dNonCashBalance">Rp 0</strong></div></div>
   <div class="statGrid"><div class="miniStat in"><span>↑</span><div>Pemasukan<strong id="dIn">Rp 0</strong></div></div><div class="miniStat out"><span>↓</span><div>Pengeluaran<strong id="dOut">Rp 0</strong></div></div></div>
   <div class="card"><h3>Ringkasan 7 Hari Terakhir</h3><div id="weekChart" class="chart"></div><div class="legend"><span><i class="dot inDot"></i>Pemasukan</span><span><i class="dot outDot"></i>Pengeluaran</span></div></div>
-  <div class="quickGrid"><button onclick="page('transaksi',document.querySelector('[data-page=transaksi]'))">▣<b>Buku Kas</b></button><button onclick="page('stok',document.querySelector('[data-page=stok]'))">▦<b>Stok Bahan</b></button><button onclick="page('laporan',document.querySelector('[data-page=laporan]'))">▤<b>Laporan</b></button><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">⚙<b>Lainnya</b></button></div><button class="dashboardTelegramBtn" onclick="openTelegramSettings();setTimeout(()=>checkTelegramNow(true),50)">✈️ <span>Cek Telegram</span></button>
+  <div class="quickGrid"><button onclick="page('transaksi',document.querySelector('[data-page=transaksi]'))">▣<b>Buku Kas</b></button><button onclick="page('stok',document.querySelector('[data-page=stok]'))">▦<b>Stok Bahan</b></button><button onclick="page('laporan',document.querySelector('[data-page=laporan]'))">▤<b>Laporan</b></button><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">⚙<b>Lainnya</b></button></div><button class="dashboardTelegramBtn" onclick="openTelegramDashboard()">✈️ <span>Cek Telegram</span></button>
 </section>
 
 <section id="transaksi" class="page">
@@ -48,7 +48,7 @@
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.28</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.29</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
@@ -82,13 +82,13 @@
 <div class="actions"><button onclick="saveGitHubSettings()">Simpan Pengaturan</button><button class="primary" onclick="githubBackupNow()">☁ Backup Sekarang</button><button onclick="closeGitHubSettings()">Tutup</button></div>
 </div></div>
 
-<div class="modal" id="telegramModal"><div class="modalbox telegramBox"><h2>Telegram → Pembukuan</h2><p class="sub">Cek laporan Telegram terlebih dahulu. Data tidak masuk ke Buku Kas sampai Anda menekan <b>Terapkan ke Pembukuan</b>.</p>
-<label>Token Telegram Bot</label><input id="tgToken" type="password" placeholder="Masukkan token bot">
-<label>Chat ID (opsional)</label><input id="tgChatId" placeholder="Kosongkan untuk semua chat yang bot boleh baca">
+<div class="modal" id="telegramModal"><div class="modalbox telegramBox"><h2 class="telegramDashboardTitle">Telegram → Pembukuan</h2><p class="sub telegramSettingsOnly">Cek laporan Telegram terlebih dahulu. Data tidak masuk ke Buku Kas sampai Anda menekan <b>Terapkan ke Pembukuan</b>.</p>
+<div class="telegramSettingsOnly"><label>Token Telegram Bot</label><input id="tgToken" type="password" placeholder="Masukkan token bot">
+<label>Chat ID (opsional)</label><input id="tgChatId" placeholder="Kosongkan untuk semua chat yang bot boleh baca"></div>
 <div class="tgStatus" id="tgStatus">Belum mengecek Telegram.</div>
 <div id="tgPreview" class="tgPreview"><div class="empty">Belum ada data Telegram yang menunggu diterapkan.</div></div>
 <div class="telegramHint">Alur langsung: Telegram → Bot → Pembukuan. Tidak ada sinkronisasi otomatis. Gunakan <b>Cek Telegram</b> untuk mengambil data, periksa hasilnya, lalu pilih <b>Terapkan ke Pembukuan</b>. Token disimpan lokal di perangkat. Jangan membagikan token bot.</div>
-<div class="actions"><button class="primary" onclick="checkTelegramNow(true)">🔎 Cek Telegram</button><button id="tgApplyBtn" onclick="applyTelegramPending()" disabled>✓ Terapkan ke Pembukuan</button><button onclick="saveTelegramSettings()">Simpan Pengaturan</button><button onclick="closeTelegramSettings()">Tutup</button></div>
+<div class="actions"><button class="primary tgCheckBtn" onclick="checkTelegramNow(true)">🔎 Cek Telegram</button><button id="tgApplyBtn" onclick="applyTelegramPending()" disabled>✓ Terapkan ke Pembukuan</button><button class="tgSaveBtn" onclick="saveTelegramSettings()">Simpan Pengaturan</button><button onclick="closeTelegramSettings()">Tutup</button></div>
 </div></div>
 <div class="modal" id="printerModal"><div class="modalbox printerBox"><h2>Pengaturan Printer</h2><p class="sub">Hubungkan printer thermal <b>Bluetooth BLE</b> agar dapat digunakan langsung dari aplikasi.</p>
 <div class="printerStatus" id="printerStatus">Printer belum terhubung.</div>
@@ -99,5 +99,5 @@
 <div class="actions"><button class="primary" onclick="connectBLEPrinter()">🔵 Pilih Printer BLE</button><button onclick="testBLEPrinter()">🖨 Test Printer</button><button onclick="savePrinterSettings()">Simpan Pengaturan</button><button onclick="disconnectBLEPrinter()">Putuskan</button><button onclick="closePrinterSettings()">Tutup</button></div>
 </div></div>
 <div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
-<script src="app.js?v=3.3.28"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
+<script src="app.js?v=3.3.29"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
 <script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js").catch(()=>{}));}</script></body></html>

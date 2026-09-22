@@ -553,12 +553,25 @@ function readTelegramSettings(){
   catch(e){return {token:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null}}
 }
 function saveTelegramSettingsLocal(x){localStorage.setItem(TELEGRAM_SETTINGS_KEY,JSON.stringify(x))}
+function openTelegramDashboard(){
+  const modal=$("telegramModal");
+  if(!modal)return;
+  modal.classList.add("show","telegramDashboardMode");
+  const s=readTelegramSettings();
+  $("tgStatus").textContent="Memeriksa laporan Telegram...";
+  renderTelegramPreview(null);
+  checkTelegramNow(false).then(()=>{
+    const t=readTelegramSettings();
+    $("tgStatus").textContent=t.lastStatus||"Selesai memeriksa Telegram.";
+  });
+}
+
 function openTelegramSettings(){
   const s=readTelegramSettings(); $("tgToken").value=s.token; $("tgChatId").value=s.chatId;
   $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Pengecekan terakhir: ${s.lastSync}`:"Belum mengecek Telegram.");
   renderTelegramPreview(s.pending); $("telegramModal").classList.add("show")
 }
-function closeTelegramSettings(){$("telegramModal").classList.remove("show")}
+function closeTelegramSettings(){$("telegramModal").classList.remove("show","telegramDashboardMode")}
 function saveTelegramSettings(){
   const old=readTelegramSettings(); const token=$("tgToken").value.trim()||old.token; const chatId=$("tgChatId").value.trim();
   const s={...old,token,chatId}; saveTelegramSettingsLocal(s);
