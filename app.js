@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.71";
+const APP_VERSION="3.3.72";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -62,6 +62,8 @@ function normalizeTxData(){
 normalizeTxData();
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
+const printerMoney=n=>"Rp "+Math.round(Number(n)||0).toLocaleString("en-US").replace(/,/g,".");
+function sanitizePrinterText(text){return String(text).replace(/\u00a0/g," ").replace(/[\u2000-\u200B\u202F]/g," ").normalize("NFKC").replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2013|\u2014/g,"-").replace(/\u2026/g,"...");}
 const today=()=>{
   const d=new Date();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
@@ -538,71 +540,72 @@ function getBuyListItems(){
   return stocks.filter(x=>x.qty<=x.min).map(x=>{
     const target=Math.max(x.initialQty??x.qty,x.min);
     const buy=Math.max(0,target-x.qty);
-    return {id:x.id,name:x.name,buy};
+    return {name:x.name,buy};
   }).filter(x=>x.buy>0);
 }
 
-function getSelectedBuyItems(){
-  const selected=[...document.querySelectorAll('#buySelectList input[data-buy-id]:checked')].map(el=>Number(el.dataset.buyId));
-  return selected.map(id=>{
-    const x=stocks.find(s=>s.id===id); if(!x)return null;
-    const item=getBuyListItems().find(b=>b.id===id);
-    return item?{id,name:x.name,buy:item.buy}:null;
-  }).filter(Boolean);
+let bulkBuySelection=[];
+
+function openBulkBuy(){
+  const items=getBuyListItems();
+  if(!items.length)return appAlert("Tidak ada barang yang perlu dibeli.","Proses Pembelian");
+  bulkBuySelection=items.map(x=>{const st=stocks.find(s=>s.name===x.name);return {...x,id:st?.id||0,checked:true};});
+  renderBulkBuySelect();
+  $("bulkBuyModal").classList.add("show");
 }
-function openBuySelection(){
-  const items=getBuyListItems().map(item=>({...item,id:stocks.find(s=>s.name===item.name)?.id})).filter(x=>x.id!=null);
-  if(!items.length)return appAlert('Tidak ada barang yang perlu dibeli.','Daftar Belanja');
-  $('buySelectList').innerHTML=items.map(x=>`<label class="buySelectRow"><input type="checkbox" data-buy-id="${x.id}" checked><span><b>${esc(x.name)}</b><small>${x.buy} pack</small></span></label>`).join('');
-  $('buySelectModal').classList.add('show');
+function closeBulkBuy(){$("bulkBuyModal").classList.remove("show");}
+function renderBulkBuySelect(){
+  const el=$("bulkBuySelectList");
+  if(!el)return;
+  el.innerHTML=bulkBuySelection.map((x,i)=>`<label class="bulkBuyCheck"><input type="checkbox" data-bulk-index="${i}" ${x.checked?"checked":""} onchange="toggleBulkBuy(${i},this.checked)"><span><b>${esc(x.name)}</b><small>${x.buy} pack</small></span></label>`).join("");
+  $("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`;
 }
-function closeBuySelection(){$('buySelectModal').classList.remove('show')}
-function selectAllBuyItems(value){document.querySelectorAll('#buySelectList input[data-buy-id]').forEach(x=>x.checked=value)}
-async function printSelectedBuyList(){
-  const items=getSelectedBuyItems();
-  if(!items.length)return appAlert('Centang minimal satu barang.','Daftar Belanja');
-  let text='SEBLAK STORY\nDAFTAR BARANG YANG HARUS DIBELI\n================================\n';
-  items.forEach((x,i)=>text+=`${String(i+1).padStart(2,' ')}. ${String(x.name||'').slice(0,27)}  ${x.buy} pack\n`);
-  text+='================================\nTotal item: '+items.length+'\n\nTerima kasih\nSeblak Story\n\n\n';
-  try{await sendReceiptTextBLE(text,'Cetak daftar belanja berhasil');
-    appAlert('Daftar belanja berhasil dicetak. Setelah selesai belanja, tekan "Selesai Belanja" untuk memasukkan jumlah dan harga.','Cetak berhasil');
-  }catch(e){appAlert(e?.message||'Cetak daftar belanja BLE gagal. Hubungkan printer BLE terlebih dahulu.','Cetak daftar belanja gagal')}
+function toggleBulkBuy(i,checked){if(bulkBuySelection[i])bulkBuySelection[i].checked=checked;$("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`; }
+function bulkBuySelectAll(v){bulkBuySelection.forEach(x=>x.checked=v);renderBulkBuySelect();}
+async function printSelectedBulkBuy(){
+  const items=bulkBuySelection.filter(x=>x.checked);
+  if(!items.length)return appAlert("Centang minimal satu barang.","Cetak Daftar Belanja");
+  let text="SEBLAK STORY\nDAFTAR BELANJA\n================================\n";
+  items.forEach((x,i)=>{text+=`${String(i+1).padStart(2," ")}. ${String(x.name||"").slice(0,27)}  ${x.buy} pack\n`;});
+  text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";
+  try{await sendReceiptTextBLE(text,"Daftar belanja berhasil dicetak");}catch(e){appAlert(e?.message||"Cetak BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak gagal");}
 }
-function openBatchPurchase(){
-  const items=getSelectedBuyItems();
-  if(!items.length)return appAlert('Centang barang yang dibeli terlebih dahulu.','Pembelian');
-  $('batchBuyList').innerHTML=items.map(x=>{const st=stocks.find(s=>s.id===x.id);const last=getLastBuyPrice(st);return `<div class="batchBuyRow" data-id="${x.id}"><div class="batchBuyName"><b>${esc(x.name)}</b><small>Rencana: ${x.buy} pack${last?` • Harga terakhir: ${money(last)}`:''}</small></div><div class="batchBuyFields"><label>Pack<input class="batchPack" type="number" min="0" value="${x.buy}" inputmode="numeric"></label><label>Harga/Pack<input class="batchPrice" type="number" min="0" value="${last||''}" inputmode="numeric" placeholder="Harga baru"></label><label class="batchBought"><input class="batchSkip" type="checkbox"> Tidak dibeli</label></div><div class="batchLineTotal">Total: <b>Rp 0</b></div></div>`}).join('');
-  document.querySelectorAll('#batchBuyList .batchPack,#batchBuyList .batchPrice,#batchBuyList .batchSkip').forEach(el=>el.addEventListener('input',updateBatchPurchaseTotal));
-  $('batchPayment').value='Tunai'; updateBatchPurchaseTotal(); closeBuySelection(); $('batchBuyModal').classList.add('show');
+function startBulkPurchase(){
+  const selected=bulkBuySelection.filter(x=>x.checked);
+  if(!selected.length)return appAlert("Centang minimal satu barang yang dibeli.","Selesai Belanja");
+  $("bulkBuyModal").classList.remove("show");
+  const list=$("bulkPurchaseList");
+  list.innerHTML=selected.map((x,i)=>{
+    const st=stocks.find(s=>s.id===x.id);
+    const last=getLastBuyPrice(st);
+    return `<div class="bulkPurchaseRow" data-bulk-id="${x.id}"><div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(x.name)}</b></label><span>Rencana ${x.buy} pack</span></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${x.buy}"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="number" min="0" value="${last||0}"></label></div><small class="bulkLastPrice">Harga terakhir: ${last?money(last):"Belum ada"}</small></div>`;
+  }).join("");
+  $("bulkPayment").value="Tunai";
+  $("bulkPurchaseModal").classList.add("show");
+  updateBulkPurchaseTotal();
 }
-function closeBatchPurchase(){$('batchBuyModal').classList.remove('show')}
-function updateBatchPurchaseTotal(){
+function closeBulkPurchase(){$("bulkPurchaseModal").classList.remove("show");}
+function updateBulkPurchaseTotal(){
   let total=0;
-  document.querySelectorAll('#batchBuyList .batchBuyRow').forEach(row=>{
-    const skip=row.querySelector('.batchSkip')?.checked;
-    const pack=Number(row.querySelector('.batchPack')?.value)||0, price=Number(row.querySelector('.batchPrice')?.value)||0;
-    const line=pack*price; if(!skip)total+=line;
-    const out=row.querySelector('.batchLineTotal'); if(out)out.innerHTML=`Total: <b>${money(skip?0:line)}</b>`;
-    row.classList.toggle('skipped',!!skip);
-  });
-  $('batchBuyGrandTotal').textContent=money(total);
+  document.querySelectorAll(".bulkPurchaseRow").forEach(r=>{const on=r.querySelector(".bulkBought")?.checked;if(!on)return;total+=(Number(r.querySelector(".bulkPack")?.value)||0)*(Number(r.querySelector(".bulkPrice")?.value)||0);});
+  $("bulkPurchaseTotal").textContent=money(total);
 }
-function saveBatchPurchase(){
-  const rows=[...document.querySelectorAll('#batchBuyList .batchBuyRow')];
-  const payment=$('batchPayment').value||'Tunai'; let total=0,count=0; const now=localDT();
-  for(const row of rows){
-    if(row.querySelector('.batchSkip')?.checked)continue;
-    const id=Number(row.dataset.id),packs=Number(row.querySelector('.batchPack')?.value)||0,price=Number(row.querySelector('.batchPrice')?.value)||0,x=stocks.find(s=>s.id===id);
+function saveBulkPurchase(){
+  const rows=[...document.querySelectorAll(".bulkPurchaseRow")];
+  let saved=0,total=0;
+  for(const r of rows){
+    if(!r.querySelector(".bulkBought")?.checked)continue;
+    const id=Number(r.dataset.bulkId),packs=Number(r.querySelector(".bulkPack")?.value)||0,price=Number(r.querySelector(".bulkPrice")?.value)||0,x=stocks.find(a=>a.id===id);
     if(!x)continue;
-    if(packs<0||price<=0)return appAlert(`Harga per pack wajib diisi untuk ${x.name}.`,'Data belum lengkap');
-    if(packs===0)continue;
-    const line=packs*price; x.qty+=packs; x.lastBuyPrice=price; total+=line; count++;
-    store.tx.push({id:Date.now()+count,type:'out',date:now,name:`Pembelian stok - ${x.name}`,amount:line,paymentMethod:payment,note:`${packs} pack × ${money(price)} per pack`});
+    if(packs<=0){appAlert(`Jumlah beli ${x.name} harus lebih dari 0 atau hilangkan centangnya.`,"Data belum lengkap");return;}
+    if(price<=0){appAlert(`Harga per pack ${x.name} wajib diisi.`,"Data belum lengkap");return;}
+    x.qty+=packs;x.lastBuyPrice=price;const amount=packs*price;total+=amount;saved++;
+    store.tx.push({id:Date.now()+saved,type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount,paymentMethod:$('bulkPayment').value,note:`${packs} pack × ${money(price)} per pack`});
   }
-  if(!count)return appAlert('Tidak ada barang yang diproses. Centang barang yang dibeli dan isi jumlah/harga.','Pembelian');
-  persist(); closeBatchPurchase(); renderStock(); renderDashboard(); renderTransactions(); renderReport();
-  appAlert(`${count} barang berhasil diperbarui. Total pembelian ${money(total)} dicatat sebagai pengeluaran ${payment}.`,'Pembelian berhasil');
+  if(!saved)return appAlert("Tidak ada barang yang dibeli. Centang barang yang benar-benar dibeli.","Pembelian");
+  persist();closeBulkPurchase();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`${saved} barang berhasil diperbarui.\nTotal pembelian: ${money(total)}`,"Pembelian tersimpan");
 }
+
 async function printBuyListBLE(){
   const items=getBuyListItems();
   if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Cetak Daftar Belanja");}
@@ -1031,10 +1034,10 @@ async function bleWrite(data){
 function receiptText(){
   const d=new Date();
   const balance=store.tx.reduce((a,x)=>a+(x.type==="in"?(Number(x.amount)||0):-(Number(x.amount)||0)),0);
-  return ["SEBLAK STORY PEMBUKUAN","==============================",`Tanggal: ${d.toLocaleString("id-ID")}`,"",`Saldo Kas: ${money(balance)}`,"","Terima kasih","","",""].join("\n");
+  return ["SEBLAK STORY PEMBUKUAN","==============================",`Tanggal: ${d.toLocaleString("id-ID")}`,"",`Saldo Kas: ${printerMoney(balance)}`,"","Terima kasih","","",""].join("\n");
 }
 async function testBLEPrinter(){
-  try{await ensureBLEPrinter(); const bytes=new TextEncoder().encode(receiptText()); await bleWrite(new Uint8Array([0x1b,0x40])); await bleWrite(bytes); await bleWrite(new Uint8Array([0x1d,0x56,0x00])); appAlert("Test print berhasil dikirim ke printer BLE.","Test Printer");}
+  try{await ensureBLEPrinter(); const bytes=new TextEncoder().encode(sanitizePrinterText(receiptText())); await bleWrite(new Uint8Array([0x1b,0x40])); await bleWrite(bytes); await bleWrite(new Uint8Array([0x1d,0x56,0x00])); appAlert("Test print berhasil dikirim ke printer BLE.","Test Printer");}
   catch(e){appAlert(e?.message||"Test printer gagal.","Test Printer gagal")}
 }
 async function disconnectBLEPrinter(){try{if(blePrinterDevice?.gatt?.connected)blePrinterDevice.gatt.disconnect();}catch(e){} blePrinterCharacteristic=null; blePrinterDevice=null; const el=$("printerStatus");if(el)el.textContent="Printer terputus.";}
@@ -1042,7 +1045,7 @@ async function sendReceiptTextBLE(text,title="Cetak berhasil"){
   await ensureBLEPrinter();
   const encoder=new TextEncoder();
   await bleWrite(new Uint8Array([0x1b,0x40]));
-  await bleWrite(encoder.encode(text));
+  await bleWrite(encoder.encode(sanitizePrinterText(text)));
   await bleWrite(new Uint8Array([0x1d,0x56,0x00]));
   appAlert("Data berhasil dikirim langsung ke printer BLE.",title);
 }
@@ -1051,8 +1054,8 @@ async function printReportBLE(){
   const ins=store.tx.filter(x=>x.type==="in"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to));
   const outs=store.tx.filter(x=>x.type==="out"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to));
   const ti=ins.reduce((a,x)=>a+(Number(x.amount)||0),0), toT=outs.reduce((a,x)=>a+(Number(x.amount)||0),0);
-  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+money(ti)+"\nTotal Pengeluaran: "+money(toT)+"\nSaldo / Laba: "+money(ti-toT)+"\n\nTRANSAKSI\n";
-  for(const x of [...ins,...outs].sort((a,b)=>String(b.date).localeCompare(String(a.date)))) text+=`${String(x.date||'').replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${money(x.amount)}\n`;
+  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+printerMoney(ti)+"\nTotal Pengeluaran: "+printerMoney(toT)+"\nSaldo / Laba: "+printerMoney(ti-toT)+"\n\nTRANSAKSI\n";
+  for(const x of [...ins,...outs].sort((a,b)=>String(b.date).localeCompare(String(a.date)))) text+=`${String(x.date||'').replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${printerMoney(x.amount)}\n`;
   text+="\nTerima kasih\nSeblak Story\n\n\n";
   await sendReceiptTextBLE(text,"Cetak laporan berhasil");
 }
