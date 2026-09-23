@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.68";
+const APP_VERSION="3.3.70";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -600,45 +600,40 @@ async function printSOList(){
     })).filter(x=>x.name);
     if(!rows.length){appAlert('Tidak ada data SO untuk dicetak.','Cetak SO');return;}
 
-    // ESC/POS direct print for 80mm thermal printer (no browser print/preview).
+    // Cetak langsung ESC/POS 80mm. Dibuat sama dengan gaya cetak laporan lain:
+    // font standar, tidak bold untuk isi, tanpa double-size.
     const enc=new TextEncoder();
     const bytes=[];
     const push=(...a)=>bytes.push(...a);
     const text=t=>push(...enc.encode(t));
     const cmd=(...a)=>push(...a);
-    const pad=(n)=>' '.repeat(Math.max(0,n));
-    const cleanName=x=>x.replace(/[\r\n\t]+/g,' ').trim();
-    const maxName=30, qtyWidth=10, lineWidth=42;
+    const cleanName=x=>x.replace(/[\r\n\t]+/g,' ').replace(/[^\x20-\x7E]/g,' ').trim();
+    const maxName=30, qtyWidth=10;
 
-    cmd(0x1b,0x40);                 // initialize
-    cmd(0x1b,0x61,0x01);            // center
-    cmd(0x1b,0x45,0x01);            // bold
-    cmd(0x1d,0x21,0x11);            // double width + double height
+    cmd(0x1b,0x40);       // initialize
+    cmd(0x1b,0x45,0x00);  // bold OFF
+    cmd(0x1b,0x21,0x00);  // standard font/style
+    cmd(0x1d,0x21,0x00);  // normal character size
+    cmd(0x1b,0x61,0x01);  // center
     text('STOK OPNAME\n');
-    cmd(0x1d,0x21,0x00);            // normal size
     text('Seblak Story\n');
-    cmd(0x1b,0x45,0x00);
+    cmd(0x1b,0x61,0x00);  // left
     text('------------------------------------------\n');
-    cmd(0x1b,0x61,0x00);            // left
-    cmd(0x1b,0x45,0x01);
-    text('Nama Barang'.padEnd(maxName)+ 'Stok'.padStart(qtyWidth) + '\n');
-    cmd(0x1b,0x45,0x00);
+    text('Nama Barang'.padEnd(maxName)+'Stok'.padStart(qtyWidth)+'\n');
     text('------------------------------------------\n');
 
     for(const r of rows){
       let name=cleanName(r.name);
-      if(name.length>maxName) name=name.slice(0,maxName-1)+'…';
-      const qty=`${r.qty} pack`;
+      if(name.length>maxName) name=name.slice(0,maxName-1)+' ';
+      const qty=cleanName(`${r.qty} pack`);
       text(name.padEnd(maxName)+qty.padStart(qtyWidth)+'\n');
     }
     text('------------------------------------------\n');
     cmd(0x1b,0x61,0x01);
-    cmd(0x1b,0x45,0x01);
     text(`Total: ${rows.length} item\n`);
-    cmd(0x1b,0x45,0x00);
     text('Terima Kasih\nSeblak Story\n\n\n');
     cmd(0x1b,0x61,0x00);
-    cmd(0x1d,0x56,0x00);            // full cut (if supported)
+    cmd(0x1d,0x56,0x00); // cut if supported
 
     await bleWrite(new Uint8Array(bytes));
     appAlert(`Cetak SO berhasil dikirim langsung ke printer BLE.\n\n${rows.length} item`,'Cetak berhasil');
