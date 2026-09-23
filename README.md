@@ -1,2 +1,1 @@
-Seblak Story Pembukuan v3.3.73
-Auto-reconnect printer BLE setelah refresh/reopen.
+Seblak Story Pembukuan v3.3.74 - Dashboard Belanja, Selesai Belanja & WA

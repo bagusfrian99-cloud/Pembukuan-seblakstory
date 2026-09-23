@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.73";
+const APP_VERSION="3.3.74";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -554,6 +554,11 @@ function openBulkBuy(){
   $("bulkBuyModal").classList.add("show");
 }
 function closeBulkBuy(){$("bulkBuyModal").classList.remove("show");}
+function finishBulkPurchaseFromDashboard(){
+  const selected=bulkBuySelection.filter(x=>x.checked);
+  if(selected.length){ startBulkPurchase(); return; }
+  appAlert("Belum ada daftar belanja yang dipilih. Tekan Belanja terlebih dahulu, lalu setelah selesai belanja tekan Selesai Belanja.","Selesai Belanja");
+}
 function renderBulkBuySelect(){
   const el=$("bulkBuySelectList");
   if(!el)return;
@@ -738,7 +743,7 @@ function renderStock(){
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
     return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button></div></div>`;
   }).join('')||'<div class="empty">Belum ada bahan pada filter ini.</div>';
-  const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>{const st=stocks.find(s=>s.name===x.name);return `<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyrowRight"><span class="buyqty">${x.buy} pack</span>${st?`<button type="button" class="buyListBtn" onclick="openBuy(${st.id})">Beli</button>`:''}</span></div>`}).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
+  const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyqty">${x.buy} pack</span></div>`).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
 }
 
 
