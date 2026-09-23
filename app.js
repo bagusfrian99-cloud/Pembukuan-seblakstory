@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.72";
+const APP_VERSION="3.3.73";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -1014,17 +1014,46 @@ async function connectBLEPrinter(){
 }
 async function getSavedBLEPrinter(){
   const s=readPrinterSettings();
-  if(!s.deviceId||!navigator.bluetooth?.getDevices)return null;
+  if(!s.name || !navigator.bluetooth?.getDevices) return null;
   const devices=await navigator.bluetooth.getDevices();
-  const d=devices.find(x=>x.id===s.deviceId); if(!d)return null;
+  // Prefer the saved device id, but also fall back to the saved name. Some
+  // Android/Chrome versions can expose a different transient id after reload.
+  const d=devices.find(x=>s.deviceId && x.id===s.deviceId) ||
+          devices.find(x=>s.name && x.name===s.name);
+  if(!d)return null;
   if(!d.gatt)throw new Error("Printer BLE tidak menyediakan GATT.");
+  d.addEventListener?.("gattserverdisconnected",()=>{
+    blePrinterCharacteristic=null;
+    if(blePrinterDevice===d) blePrinterDevice=null;
+    const el=$("printerStatus");
+    if(el)el.textContent="Printer tersimpan, tetapi sedang terputus.";
+  });
   const server=d.gatt.connected?d.gatt:await d.gatt.connect();
-  blePrinterDevice=d; blePrinterCharacteristic=await findWritableCharacteristic(server); return d;
+  blePrinterDevice=d;
+  blePrinterCharacteristic=await findWritableCharacteristic(server);
+  return d;
+}
+async function reconnectSavedBLEPrinter(silent=true){
+  try{
+    const d=await getSavedBLEPrinter();
+    if(d){
+      const el=$("printerStatus");
+      if(el)el.textContent=`Terhubung: ${d.name||"Printer BLE"}`;
+      const input=$("printerName");
+      if(input)input.value=d.name||"Printer BLE";
+      return d;
+    }
+  }catch(e){
+    const el=$("printerStatus");
+    if(el)el.textContent="Printer tersimpan, belum tersambung.";
+    if(!silent) throw e;
+  }
+  return null;
 }
 async function ensureBLEPrinter(){
   if(blePrinterCharacteristic&&blePrinterDevice?.gatt?.connected)return blePrinterDevice;
-  const saved=await getSavedBLEPrinter(); if(saved)return saved;
-  throw new Error("Printer BLE belum terhubung. Buka Pengaturan Printer → Pilih Printer BLE terlebih dahulu.");
+  const saved=await reconnectSavedBLEPrinter(false); if(saved)return saved;
+  throw new Error("Printer BLE belum terhubung. Pilih Printer BLE terlebih dahulu.");
 }
 function escBytes(){return new Uint8Array([...arguments])}
 async function bleWrite(data){
@@ -1379,4 +1408,14 @@ document.addEventListener("DOMContentLoaded",()=>{
 
   const di=$("dashboardDateInput");
   if(di) di.addEventListener("change",e=>setDashboardDate(e.target.value));
+
+  // Reconnect the previously authorised BLE printer automatically after a
+  // PWA refresh/reopen. No chooser is shown when the browser has retained
+  // the Web Bluetooth permission.
+  setTimeout(()=>reconnectSavedBLEPrinter(true),500);
 });
+window.addEventListener("pageshow",()=>setTimeout(()=>reconnectSavedBLEPrinter(true),250));
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible") setTimeout(()=>reconnectSavedBLEPrinter(true),250);
+});
+window.addEventListener("online",()=>setTimeout(()=>reconnectSavedBLEPrinter(true),250));
