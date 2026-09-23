@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.70";
+const APP_VERSION="3.3.71";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -538,10 +538,71 @@ function getBuyListItems(){
   return stocks.filter(x=>x.qty<=x.min).map(x=>{
     const target=Math.max(x.initialQty??x.qty,x.min);
     const buy=Math.max(0,target-x.qty);
-    return {name:x.name,buy};
+    return {id:x.id,name:x.name,buy};
   }).filter(x=>x.buy>0);
 }
 
+function getSelectedBuyItems(){
+  const selected=[...document.querySelectorAll('#buySelectList input[data-buy-id]:checked')].map(el=>Number(el.dataset.buyId));
+  return selected.map(id=>{
+    const x=stocks.find(s=>s.id===id); if(!x)return null;
+    const item=getBuyListItems().find(b=>b.id===id);
+    return item?{id,name:x.name,buy:item.buy}:null;
+  }).filter(Boolean);
+}
+function openBuySelection(){
+  const items=getBuyListItems().map(item=>({...item,id:stocks.find(s=>s.name===item.name)?.id})).filter(x=>x.id!=null);
+  if(!items.length)return appAlert('Tidak ada barang yang perlu dibeli.','Daftar Belanja');
+  $('buySelectList').innerHTML=items.map(x=>`<label class="buySelectRow"><input type="checkbox" data-buy-id="${x.id}" checked><span><b>${esc(x.name)}</b><small>${x.buy} pack</small></span></label>`).join('');
+  $('buySelectModal').classList.add('show');
+}
+function closeBuySelection(){$('buySelectModal').classList.remove('show')}
+function selectAllBuyItems(value){document.querySelectorAll('#buySelectList input[data-buy-id]').forEach(x=>x.checked=value)}
+async function printSelectedBuyList(){
+  const items=getSelectedBuyItems();
+  if(!items.length)return appAlert('Centang minimal satu barang.','Daftar Belanja');
+  let text='SEBLAK STORY\nDAFTAR BARANG YANG HARUS DIBELI\n================================\n';
+  items.forEach((x,i)=>text+=`${String(i+1).padStart(2,' ')}. ${String(x.name||'').slice(0,27)}  ${x.buy} pack\n`);
+  text+='================================\nTotal item: '+items.length+'\n\nTerima kasih\nSeblak Story\n\n\n';
+  try{await sendReceiptTextBLE(text,'Cetak daftar belanja berhasil');
+    appAlert('Daftar belanja berhasil dicetak. Setelah selesai belanja, tekan "Selesai Belanja" untuk memasukkan jumlah dan harga.','Cetak berhasil');
+  }catch(e){appAlert(e?.message||'Cetak daftar belanja BLE gagal. Hubungkan printer BLE terlebih dahulu.','Cetak daftar belanja gagal')}
+}
+function openBatchPurchase(){
+  const items=getSelectedBuyItems();
+  if(!items.length)return appAlert('Centang barang yang dibeli terlebih dahulu.','Pembelian');
+  $('batchBuyList').innerHTML=items.map(x=>{const st=stocks.find(s=>s.id===x.id);const last=getLastBuyPrice(st);return `<div class="batchBuyRow" data-id="${x.id}"><div class="batchBuyName"><b>${esc(x.name)}</b><small>Rencana: ${x.buy} pack${last?` • Harga terakhir: ${money(last)}`:''}</small></div><div class="batchBuyFields"><label>Pack<input class="batchPack" type="number" min="0" value="${x.buy}" inputmode="numeric"></label><label>Harga/Pack<input class="batchPrice" type="number" min="0" value="${last||''}" inputmode="numeric" placeholder="Harga baru"></label><label class="batchBought"><input class="batchSkip" type="checkbox"> Tidak dibeli</label></div><div class="batchLineTotal">Total: <b>Rp 0</b></div></div>`}).join('');
+  document.querySelectorAll('#batchBuyList .batchPack,#batchBuyList .batchPrice,#batchBuyList .batchSkip').forEach(el=>el.addEventListener('input',updateBatchPurchaseTotal));
+  $('batchPayment').value='Tunai'; updateBatchPurchaseTotal(); closeBuySelection(); $('batchBuyModal').classList.add('show');
+}
+function closeBatchPurchase(){$('batchBuyModal').classList.remove('show')}
+function updateBatchPurchaseTotal(){
+  let total=0;
+  document.querySelectorAll('#batchBuyList .batchBuyRow').forEach(row=>{
+    const skip=row.querySelector('.batchSkip')?.checked;
+    const pack=Number(row.querySelector('.batchPack')?.value)||0, price=Number(row.querySelector('.batchPrice')?.value)||0;
+    const line=pack*price; if(!skip)total+=line;
+    const out=row.querySelector('.batchLineTotal'); if(out)out.innerHTML=`Total: <b>${money(skip?0:line)}</b>`;
+    row.classList.toggle('skipped',!!skip);
+  });
+  $('batchBuyGrandTotal').textContent=money(total);
+}
+function saveBatchPurchase(){
+  const rows=[...document.querySelectorAll('#batchBuyList .batchBuyRow')];
+  const payment=$('batchPayment').value||'Tunai'; let total=0,count=0; const now=localDT();
+  for(const row of rows){
+    if(row.querySelector('.batchSkip')?.checked)continue;
+    const id=Number(row.dataset.id),packs=Number(row.querySelector('.batchPack')?.value)||0,price=Number(row.querySelector('.batchPrice')?.value)||0,x=stocks.find(s=>s.id===id);
+    if(!x)continue;
+    if(packs<0||price<=0)return appAlert(`Harga per pack wajib diisi untuk ${x.name}.`,'Data belum lengkap');
+    if(packs===0)continue;
+    const line=packs*price; x.qty+=packs; x.lastBuyPrice=price; total+=line; count++;
+    store.tx.push({id:Date.now()+count,type:'out',date:now,name:`Pembelian stok - ${x.name}`,amount:line,paymentMethod:payment,note:`${packs} pack × ${money(price)} per pack`});
+  }
+  if(!count)return appAlert('Tidak ada barang yang diproses. Centang barang yang dibeli dan isi jumlah/harga.','Pembelian');
+  persist(); closeBatchPurchase(); renderStock(); renderDashboard(); renderTransactions(); renderReport();
+  appAlert(`${count} barang berhasil diperbarui. Total pembelian ${money(total)} dicatat sebagai pengeluaran ${payment}.`,'Pembelian berhasil');
+}
 async function printBuyListBLE(){
   const items=getBuyListItems();
   if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Cetak Daftar Belanja");}
