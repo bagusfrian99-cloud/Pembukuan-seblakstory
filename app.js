@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.75";
+const APP_VERSION="3.3.77";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -443,6 +443,13 @@ function renderDashboard(){
   if(input) input.value=d;
 
   const chart=$('weekChart'); if(!chart) return; let html='';
+  const compactMoney=n=>{
+    n=Number(n)||0;
+    if(Math.abs(n)>=1000000) return (n/1000000).toFixed(n%1000000?1:0).replace('.0','')+'Jt';
+    if(Math.abs(n)>=1000) return Math.round(n/1000)+'K';
+    return String(Math.round(n));
+  };
+  const dayNames=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
   const base=new Date(d+"T00:00:00");
   for(let i=6;i>=0;i--){
     const x=new Date(base); x.setDate(base.getDate()-i);
@@ -450,7 +457,7 @@ function renderDashboard(){
     const ins=sum(store.tx.filter(t=>txDay(t)===k),'in');
     const outs=sum(store.tx.filter(t=>txDay(t)===k),'out');
     const mx=Math.max(ins,outs,1);
-    html+=`<div class="barDay"><div class="bars"><i class="bar inBar" style="height:${Math.max(6,ins/mx*70)}px"></i><i class="bar outBar" style="height:${Math.max(6,outs/mx*70)}px"></i></div><small>${x.getDate()}</small></div>`;
+    html+=`<div class="barDay"><div class="barLabels"><span class="inLabel">${compactMoney(ins)}</span><span class="outLabel">${compactMoney(outs)}</span></div><div class="bars"><i class="bar inBar" style="height:${Math.max(6,ins/mx*70)}px"></i><i class="bar outBar" style="height:${Math.max(6,outs/mx*70)}px"></i></div><small>${x.getDate()}<em>${dayNames[x.getDay()]}</em></small></div>`;
   }
   chart.innerHTML=html;
 }
@@ -965,6 +972,44 @@ function openPrinterSettings(){
   $("printerModal").classList.add("show");
 }
 function closePrinterSettings(){$("printerModal").classList.remove("show")}
+function updateQuickPrinterStatus(connected=null){
+  const s=readPrinterSettings();
+  const btn=$("quickPrinterBtn"), st=$("quickPrinterStatus");
+  if(!btn||!st)return;
+  const isConnected=connected===null?!!(blePrinterCharacteristic&&blePrinterDevice?.gatt?.connected):connected;
+  if(isConnected){
+    st.textContent="Terhubung";
+    btn.classList.add("printerConnected");
+    btn.classList.remove("printerDisconnected");
+  }else{
+    st.textContent=s.name?"Terputus":"Belum dipilih";
+    btn.classList.remove("printerConnected");
+    btn.classList.add("printerDisconnected");
+  }
+}
+async function quickConnectPrinter(){
+  const s=readPrinterSettings();
+  if(!s.name){
+    openPrinterSettings();
+    appAlert("Belum ada printer yang tersimpan. Pilih Printer BLE terlebih dahulu.","Printer");
+    return;
+  }
+  const btn=$("quickPrinterBtn");
+  if(btn){btn.disabled=true;btn.classList.add("isConnecting");}
+  const st=$("quickPrinterStatus");
+  if(st)st.textContent="Menghubungkan...";
+  try{
+    const d=await reconnectSavedBLEPrinter(false);
+    if(!d)throw new Error("Printer tersimpan tidak ditemukan. Pastikan printer menyala dan Bluetooth aktif.");
+    updateQuickPrinterStatus(true);
+    appAlert(`Printer berhasil terhubung.\n\n${d.name||s.name}\nSiap digunakan untuk cetak.`,"Printer terhubung");
+  }catch(e){
+    updateQuickPrinterStatus(false);
+    appAlert(e?.message||"Gagal menghubungkan printer tersimpan.","Koneksi printer gagal");
+  }finally{
+    if(btn){btn.disabled=false;btn.classList.remove("isConnecting");}
+  }
+}
 function savePrinterSettings(){
   const old=readPrinterSettings(), s={...old,name:$("printerName").value==="Belum dipilih"?old.name:$("printerName").value,deviceId:old.deviceId,paper:$("printerPaper").value,auto:$("printerAuto").checked};
   savePrinterSettingsLocal(s); $("printerStatus").textContent=s.name?`Pengaturan tersimpan: ${s.name}`:"Pengaturan printer tersimpan."; appAlert("Pengaturan printer tersimpan. Printer akan dipakai untuk cetak langsung jika terhubung dan opsi tersebut aktif.","Printer");
@@ -985,11 +1030,11 @@ async function connectBLEPrinter(){
   try{
     const device=await navigator.bluetooth.requestDevice({acceptAllDevices:true,optionalServices:BLE_UUIDS.services});
     if(!device.gatt)throw new Error("Printer tidak menyediakan koneksi GATT BLE.");
-    device.addEventListener("gattserverdisconnected",()=>{blePrinterCharacteristic=null;const el=$("printerStatus");if(el)el.textContent="Printer terputus.";});
+    device.addEventListener("gattserverdisconnected",()=>{blePrinterCharacteristic=null;const el=$("printerStatus");if(el)el.textContent="Printer terputus.";updateQuickPrinterStatus(false);});
     const server=await device.gatt.connect();
     blePrinterCharacteristic=await findWritableCharacteristic(server); blePrinterDevice=device;
     const old=readPrinterSettings(); savePrinterSettingsLocal({...old,name:device.name||"Printer BLE",deviceId:device.id||"",paper:$("printerPaper").value||old.paper});
-    $("printerName").value=device.name||"Printer BLE"; $("printerStatus").textContent=`Terhubung: ${device.name||"Printer BLE"}`;
+    $("printerName").value=device.name||"Printer BLE"; $("printerStatus").textContent=`Terhubung: ${device.name||"Printer BLE"}`; updateQuickPrinterStatus(true);
     appAlert(`Printer berhasil terhubung.\n\n${device.name||"Printer BLE"}\nSiap untuk test printer.`,"Printer terhubung");
   }catch(e){appAlert(e?.message||"Gagal menghubungkan printer BLE.","Koneksi printer gagal")}
 }
@@ -1008,6 +1053,7 @@ async function getSavedBLEPrinter(){
     if(blePrinterDevice===d) blePrinterDevice=null;
     const el=$("printerStatus");
     if(el)el.textContent="Printer tersimpan, tetapi sedang terputus.";
+    updateQuickPrinterStatus(false);
   });
   const server=d.gatt.connected?d.gatt:await d.gatt.connect();
   blePrinterDevice=d;
@@ -1022,11 +1068,13 @@ async function reconnectSavedBLEPrinter(silent=true){
       if(el)el.textContent=`Terhubung: ${d.name||"Printer BLE"}`;
       const input=$("printerName");
       if(input)input.value=d.name||"Printer BLE";
+      updateQuickPrinterStatus(true);
       return d;
     }
   }catch(e){
     const el=$("printerStatus");
     if(el)el.textContent="Printer tersimpan, belum tersambung.";
+    updateQuickPrinterStatus(false);
     if(!silent) throw e;
   }
   return null;
@@ -1050,7 +1098,7 @@ async function testBLEPrinter(){
   try{await ensureBLEPrinter(); const bytes=new TextEncoder().encode(sanitizePrinterText(receiptText())); await bleWrite(new Uint8Array([0x1b,0x40])); await bleWrite(bytes); await bleWrite(new Uint8Array([0x1d,0x56,0x00])); appAlert("Test print berhasil dikirim ke printer BLE.","Test Printer");}
   catch(e){appAlert(e?.message||"Test printer gagal.","Test Printer gagal")}
 }
-async function disconnectBLEPrinter(){try{if(blePrinterDevice?.gatt?.connected)blePrinterDevice.gatt.disconnect();}catch(e){} blePrinterCharacteristic=null; blePrinterDevice=null; const el=$("printerStatus");if(el)el.textContent="Printer terputus.";}
+async function disconnectBLEPrinter(){try{if(blePrinterDevice?.gatt?.connected)blePrinterDevice.gatt.disconnect();}catch(e){} blePrinterCharacteristic=null; blePrinterDevice=null; const el=$("printerStatus");if(el)el.textContent="Printer terputus."; updateQuickPrinterStatus(false);}
 async function sendReceiptTextBLE(text,title="Cetak berhasil"){
   await ensureBLEPrinter();
   const encoder=new TextEncoder();
@@ -1393,6 +1441,7 @@ document.addEventListener("DOMContentLoaded",()=>{
   // Reconnect the previously authorised BLE printer automatically after a
   // PWA refresh/reopen. No chooser is shown when the browser has retained
   // the Web Bluetooth permission.
+  updateQuickPrinterStatus(false);
   setTimeout(()=>reconnectSavedBLEPrinter(true),500);
 });
 window.addEventListener("pageshow",()=>setTimeout(()=>reconnectSavedBLEPrinter(true),250));

@@ -155,3 +155,14 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .buyListCard{padding:12px}.buyListHead,.buyListHeadBtns,.buyListBtn{display:none!important}
 
 .manualPurchaseRow{background:#fffdf0;border-color:#eadb8b}.newItemBadge{font-size:8px;font-style:normal;background:#ffd21c;border-radius:5px;padding:2px 4px;margin-left:4px}.manualRemoveBtn{border:0;background:#fee2e2;color:#b42318;border-radius:7px;padding:5px 8px;font-size:9px;font-weight:800}.dashboardBuyActions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.dashboardBuyActions .dashboardBuyBtn{border:0;border-radius:12px;padding:12px 10px;text-align:left;font-size:12px;font-weight:800;box-shadow:0 1px 4px rgba(0,0,0,.08)}.dashboardBuyBtn.wa{grid-column:1/-1;background:#e8fff1}.dashboardBuyBtn.buy{background:#fff4b8}.dashboardBuyBtn.done{background:#eaf8ee}.buyListHeadBtns{display:none!important}
+
+/* Quick printer connection in Lainnya */
+.menuCard button#quickPrinterBtn{background:#fff8cf;border-left:4px solid var(--yellow);}
+.menuCard button#quickPrinterBtn b{margin-left:auto;font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px;background:#eee;color:#666;}
+.menuCard button#quickPrinterBtn.printerConnected{background:#ecfdf3;border-left-color:#16a34a;}
+.menuCard button#quickPrinterBtn.printerConnected b{background:#dcfce7;color:#15803d;}
+.menuCard button#quickPrinterBtn.printerDisconnected b{background:#f3f4f6;color:#6b7280;}
+.menuCard button#quickPrinterBtn.isConnecting{opacity:.7;}
+
+/* v3.3.77 dashboard polish: compact 7-day nominal labels and smaller action buttons */
+.barLabels{height:18px;display:flex;align-items:flex-end;justify-content:center;gap:4px;white-space:nowrap;font-size:8px;font-weight:900;line-height:1}.barLabels span{min-width:18px;text-align:center}.inLabel{color:#15985b}.outLabel{color:#ef4444}.barDay small{display:flex;flex-direction:column;align-items:center;line-height:1.05}.barDay small em{font-style:normal;font-size:8px;margin-top:2px;color:#7a8495}.dashboardBuyActions{grid-template-columns:1fr 1fr 1fr;gap:7px;margin:9px 0}.dashboardBuyActions .dashboardBuyBtn{min-height:48px;padding:8px 5px;border-radius:11px;font-size:11px;color:#111!important;text-align:center;justify-content:center}.dashboardBuyActions .dashboardBuyBtn b{font-size:10px;color:#111!important}.dashboardBuyBtn.wa{grid-column:auto!important;background:#e8fff1!important;color:#111!important}.dashboardTelegramBtn{min-height:50px!important;padding:10px 8px!important;font-size:13px!important;color:#111!important}.dashboardTelegramBtn b{font-size:12px;color:#111!important}.dashboardBuyBtn:active,.dashboardTelegramBtn:active{transform:scale(.99)}
