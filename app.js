@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.67";
+const APP_VERSION="3.3.68";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -930,8 +930,9 @@ function savePrinterSettings(){
   savePrinterSettingsLocal(s); $("printerStatus").textContent=s.name?`Pengaturan tersimpan: ${s.name}`:"Pengaturan printer tersimpan."; appAlert("Pengaturan printer tersimpan. Printer akan dipakai untuk cetak langsung jika terhubung dan opsi tersebut aktif.","Printer");
 }
 const BLE_UUIDS={services:["0000ffe0-0000-1000-8000-00805f9b34fb","000018f0-0000-1000-8000-00805f9b34fb","0000ae30-0000-1000-8000-00805f9b34fb","0000ff00-0000-1000-8000-00805f9b34fb"],chars:["0000ffe1-0000-1000-8000-00805f9b34fb","00002af1-0000-1000-8000-00805f9b34fb","0000ae01-0000-1000-8000-00805f9b34fb","0000ff02-0000-1000-8000-00805f9b34fb"]};
-async function findWritableCharacteristic(device){
-  const services=await device.gatt.getPrimaryServices();
+async function findWritableCharacteristic(server){
+  if(!server || typeof server.getPrimaryServices!=="function") throw new Error("Koneksi BLE tidak menyediakan GATT Service.");
+  const services=await server.getPrimaryServices();
   for(const service of services){
     const chars=await service.getCharacteristics();
     const writable=chars.find(c=>c.properties.write||c.properties.writeWithoutResponse);
