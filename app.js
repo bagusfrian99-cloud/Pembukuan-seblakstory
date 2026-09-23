@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.74";
+const APP_VERSION="3.3.75";
 const KEY="seblak_story_v314";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
@@ -545,70 +545,46 @@ function getBuyListItems(){
 }
 
 let bulkBuySelection=[];
-
+const BULK_PENDING_KEY="seblak_story_pending_bulk_purchase_v1";
+function savePendingBulkSelection(){try{const a=bulkBuySelection.filter(x=>x.checked).map(x=>({id:x.id,name:x.name,buy:x.buy}));if(a.length)localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(a));else localStorage.removeItem(BULK_PENDING_KEY);}catch(e){}}
+function readPendingBulkSelection(){try{const a=JSON.parse(localStorage.getItem(BULK_PENDING_KEY)||"[]");return Array.isArray(a)?a:[]}catch(e){return[]}}
+function clearPendingBulkSelection(){try{localStorage.removeItem(BULK_PENDING_KEY)}catch(e){}}
 function openBulkBuy(){
   const items=getBuyListItems();
-  if(!items.length)return appAlert("Tidak ada barang yang perlu dibeli.","Proses Pembelian");
+  if(!items.length)return appAlert("Tidak ada barang yang perlu dibeli.","Belanja");
   bulkBuySelection=items.map(x=>{const st=stocks.find(s=>s.name===x.name);return {...x,id:st?.id||0,checked:true};});
-  renderBulkBuySelect();
-  $("bulkBuyModal").classList.add("show");
+  savePendingBulkSelection();renderBulkBuySelect();$("bulkBuyModal").classList.add("show");
 }
-function closeBulkBuy(){$("bulkBuyModal").classList.remove("show");}
+function closeBulkBuy(){$("bulkBuyModal").classList.remove("show")}
 function finishBulkPurchaseFromDashboard(){
-  const selected=bulkBuySelection.filter(x=>x.checked);
-  if(selected.length){ startBulkPurchase(); return; }
-  appAlert("Belum ada daftar belanja yang dipilih. Tekan Belanja terlebih dahulu, lalu setelah selesai belanja tekan Selesai Belanja.","Selesai Belanja");
+  let selected=readPendingBulkSelection();
+  if(!selected.length){return appAlert("Belum ada daftar belanja yang sedang diproses. Tekan Belanja terlebih dahulu.","Selesai Belanja")}
+  selected=selected.map(x=>({...x,checked:true})).filter(x=>x.name);
+  bulkBuySelection=selected;openBulkPurchaseForItems(selected);
 }
-function renderBulkBuySelect(){
-  const el=$("bulkBuySelectList");
-  if(!el)return;
-  el.innerHTML=bulkBuySelection.map((x,i)=>`<label class="bulkBuyCheck"><input type="checkbox" data-bulk-index="${i}" ${x.checked?"checked":""} onchange="toggleBulkBuy(${i},this.checked)"><span><b>${esc(x.name)}</b><small>${x.buy} pack</small></span></label>`).join("");
-  $("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`;
+function renderBulkBuySelect(){const el=$("bulkBuySelectList");if(!el)return;el.innerHTML=bulkBuySelection.map((x,i)=>`<label class="bulkBuyCheck"><input type="checkbox" data-bulk-index="${i}" ${x.checked?"checked":""} onchange="toggleBulkBuy(${i},this.checked)"><span><b>${esc(x.name)}</b><small>${x.buy} pack</small></span></label>`).join("");$("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`}
+function toggleBulkBuy(i,checked){if(bulkBuySelection[i])bulkBuySelection[i].checked=checked;savePendingBulkSelection();$("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`}
+function bulkBuySelectAll(v){bulkBuySelection.forEach(x=>x.checked=v);savePendingBulkSelection();renderBulkBuySelect()}
+async function printSelectedBulkBuy(){const items=bulkBuySelection.filter(x=>x.checked);if(!items.length)return appAlert("Centang minimal satu barang.","Cetak Daftar Belanja");let text="SEBLAK STORY\nDAFTAR BELANJA\n================================\n";items.forEach((x,i)=>{text+=`${String(i+1).padStart(2," ")}. ${String(x.name||"").slice(0,27)}  ${x.buy} pack\n`});text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";try{await sendReceiptTextBLE(text,"Daftar belanja berhasil dicetak")}catch(e){appAlert(e?.message||"Cetak BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak gagal")}}
+function startBulkPurchase(){const selected=bulkBuySelection.filter(x=>x.checked);if(!selected.length)return appAlert("Centang minimal satu barang yang dibeli.","Selesai Belanja");localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(selected.map(x=>({id:x.id,name:x.name,buy:x.buy}))));openBulkPurchaseForItems(selected)}
+function openBulkPurchaseForItems(selected){
+  $("bulkBuyModal").classList.remove("show");const list=$("bulkPurchaseList");
+  list.innerHTML=selected.map(x=>{const st=stocks.find(s=>s.id===x.id||s.name===x.name);const last=getLastBuyPrice(st);return `<div class="bulkPurchaseRow" data-bulk-id="${x.id||0}" data-bulk-name="${esc(x.name)}"><div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(x.name)}</b></label><span>Rencana ${x.buy} pack</span></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${x.buy}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="number" min="0" value="${last||0}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Harga terakhir: ${last?money(last):"Belum ada"}</small></div>`}).join("");
+  $("bulkPayment").value="Tunai";$("bulkPurchaseModal").classList.add("show");updateBulkPurchaseTotal();
 }
-function toggleBulkBuy(i,checked){if(bulkBuySelection[i])bulkBuySelection[i].checked=checked;$("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`; }
-function bulkBuySelectAll(v){bulkBuySelection.forEach(x=>x.checked=v);renderBulkBuySelect();}
-async function printSelectedBulkBuy(){
-  const items=bulkBuySelection.filter(x=>x.checked);
-  if(!items.length)return appAlert("Centang minimal satu barang.","Cetak Daftar Belanja");
-  let text="SEBLAK STORY\nDAFTAR BELANJA\n================================\n";
-  items.forEach((x,i)=>{text+=`${String(i+1).padStart(2," ")}. ${String(x.name||"").slice(0,27)}  ${x.buy} pack\n`;});
-  text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";
-  try{await sendReceiptTextBLE(text,"Daftar belanja berhasil dicetak");}catch(e){appAlert(e?.message||"Cetak BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak gagal");}
-}
-function startBulkPurchase(){
-  const selected=bulkBuySelection.filter(x=>x.checked);
-  if(!selected.length)return appAlert("Centang minimal satu barang yang dibeli.","Selesai Belanja");
-  $("bulkBuyModal").classList.remove("show");
-  const list=$("bulkPurchaseList");
-  list.innerHTML=selected.map((x,i)=>{
-    const st=stocks.find(s=>s.id===x.id);
-    const last=getLastBuyPrice(st);
-    return `<div class="bulkPurchaseRow" data-bulk-id="${x.id}"><div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(x.name)}</b></label><span>Rencana ${x.buy} pack</span></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${x.buy}"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="number" min="0" value="${last||0}"></label></div><small class="bulkLastPrice">Harga terakhir: ${last?money(last):"Belum ada"}</small></div>`;
-  }).join("");
-  $("bulkPayment").value="Tunai";
-  $("bulkPurchaseModal").classList.add("show");
-  updateBulkPurchaseTotal();
-}
-function closeBulkPurchase(){$("bulkPurchaseModal").classList.remove("show");}
-function updateBulkPurchaseTotal(){
-  let total=0;
-  document.querySelectorAll(".bulkPurchaseRow").forEach(r=>{const on=r.querySelector(".bulkBought")?.checked;if(!on)return;total+=(Number(r.querySelector(".bulkPack")?.value)||0)*(Number(r.querySelector(".bulkPrice")?.value)||0);});
-  $("bulkPurchaseTotal").textContent=money(total);
-}
+function openManualPurchaseModal(){$("manualPurchaseName").value="";$("manualPurchasePack").value="1";$("manualPurchasePrice").value="";$("manualPurchaseModal").classList.add("show");setTimeout(()=>$("manualPurchaseName")?.focus(),100)}
+function closeManualPurchaseModal(){$("manualPurchaseModal").classList.remove("show")}
+function addManualPurchaseItem(){
+  const name=$("manualPurchaseName").value.trim(),packs=Number($("manualPurchasePack").value)||0,price=Number($("manualPurchasePrice").value)||0;
+  if(!name)return appAlert("Nama barang wajib diisi.","Barang baru");if(packs<=0)return appAlert("Jumlah pack harus lebih dari 0.","Barang baru");if(price<=0)return appAlert("Harga per pack wajib diisi.","Barang baru");
+  if(stocks.some(x=>String(x.name).trim().toLowerCase()===name.toLowerCase()))return appAlert("Barang dengan nama tersebut sudah ada. Gunakan barang yang sudah terdaftar.","Barang sudah ada");
+  const row=document.createElement("div");row.className="bulkPurchaseRow manualPurchaseRow";row.dataset.bulkId="manual-"+Date.now();row.dataset.bulkName=name;row.innerHTML=`<div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(name)}</b> <em class="newItemBadge">BARU</em></label><button type="button" class="manualRemoveBtn" onclick="this.closest('.bulkPurchaseRow').remove();updateBulkPurchaseTotal()">Hapus</button></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${packs}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="number" min="0" value="${price}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Barang baru — akan dibuat saat Simpan Semua</small>`;$("bulkPurchaseList").appendChild(row);closeManualPurchaseModal();updateBulkPurchaseTotal();}
+function closeBulkPurchase(){$("bulkPurchaseModal").classList.remove("show")}
+function updateBulkPurchaseTotal(){let total=0;document.querySelectorAll(".bulkPurchaseRow").forEach(r=>{if(!r.querySelector(".bulkBought")?.checked)return;total+=(Number(r.querySelector(".bulkPack")?.value)||0)*(Number(r.querySelector(".bulkPrice")?.value)||0)});$("bulkPurchaseTotal").textContent=money(total)}
 function saveBulkPurchase(){
-  const rows=[...document.querySelectorAll(".bulkPurchaseRow")];
-  let saved=0,total=0;
-  for(const r of rows){
-    if(!r.querySelector(".bulkBought")?.checked)continue;
-    const id=Number(r.dataset.bulkId),packs=Number(r.querySelector(".bulkPack")?.value)||0,price=Number(r.querySelector(".bulkPrice")?.value)||0,x=stocks.find(a=>a.id===id);
-    if(!x)continue;
-    if(packs<=0){appAlert(`Jumlah beli ${x.name} harus lebih dari 0 atau hilangkan centangnya.`,"Data belum lengkap");return;}
-    if(price<=0){appAlert(`Harga per pack ${x.name} wajib diisi.`,"Data belum lengkap");return;}
-    x.qty+=packs;x.lastBuyPrice=price;const amount=packs*price;total+=amount;saved++;
-    store.tx.push({id:Date.now()+saved,type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount,paymentMethod:$('bulkPayment').value,note:`${packs} pack × ${money(price)} per pack`});
-  }
-  if(!saved)return appAlert("Tidak ada barang yang dibeli. Centang barang yang benar-benar dibeli.","Pembelian");
-  persist();closeBulkPurchase();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`${saved} barang berhasil diperbarui.\nTotal pembelian: ${money(total)}`,"Pembelian tersimpan");
+  const rows=[...document.querySelectorAll(".bulkPurchaseRow")];let saved=0,total=0;const payment=$("bulkPayment").value;
+  for(const r of rows){if(!r.querySelector(".bulkBought")?.checked)continue;const rawId=String(r.dataset.bulkId||""),name=String(r.dataset.bulkName||"").trim(),packs=Number(r.querySelector(".bulkPack")?.value)||0,price=Number(r.querySelector(".bulkPrice")?.value)||0;if(packs<=0)return appAlert(`Jumlah beli untuk ${name||"barang"} harus lebih dari 0 atau hilangkan centangnya.`,"Data belum lengkap");if(price<=0)return appAlert(`Harga per pack ${name||"barang"} wajib diisi.`,"Data belum lengkap");let x=rawId.startsWith("manual-")?null:stocks.find(a=>String(a.id)===rawId);if(!x)x=stocks.find(a=>String(a.name).trim().toLowerCase()===name.toLowerCase());if(!x){x={id:Date.now()+saved+Math.floor(Math.random()*1000),name,unit:"pack",stockUnit:"pack",pack:1,min:0,qty:0,initialQty:0,lastSO:0,lastBuyPrice:0};stocks.push(x)}x.qty=(Number(x.qty)||0)+packs;x.lastBuyPrice=price;const amount=packs*price;total+=amount;saved++;store.tx.push({id:Date.now()+saved,type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount,paymentMethod:payment,note:`${packs} pack × ${money(price)} per pack`})}
+  if(!saved)return appAlert("Belum ada barang yang dibeli. Centang barang yang benar-benar dibeli atau tambahkan barang baru.","Pembelian");persist();clearPendingBulkSelection();closeBulkPurchase();closeManualPurchaseModal();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`${saved} barang berhasil diperbarui.\nTotal pembelian: ${money(total)}`,"Pembelian tersimpan")
 }
 
 async function printBuyListBLE(){
