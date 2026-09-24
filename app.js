@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.80";
+const APP_VERSION="3.3.83";
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
 const MODE_KEY="seblak_story_mode_v1";
@@ -368,8 +368,8 @@ function initBackNavigation(){
   });
 }
 function toggleMenu(){ page('lainnya',document.querySelector('[data-page="lainnya"]')); }
-let txTab='in';
-function setTxTab(tab){ txTab=tab||'in'; document.querySelectorAll('.tabs button').forEach(b=>b.classList.remove('active')); const id=txTab==='out'?'tabOut':txTab==='all'?'tabAll':'tabIn'; $(id)?.classList.add('active'); const ft=$('filterType'); if(ft)ft.value=txTab==='all'?'':txTab; const add=$('txAddBtn'); if(add)add.textContent=txTab==='out'?'＋ Tambah Pengeluaran':'＋ Tambah Pemasukan'; renderTransactions(); }
+let txTab='all';
+function setTxTab(tab){ txTab=tab||'all'; const ft=$('filterType'); if(ft)ft.value=txTab; renderTransactions(); }
 
 function updateTxNameField(){
   const isIncome=$("tType").value==="in";
@@ -469,11 +469,22 @@ function setDashboardDate(value){
 }
 
 function openTransfer(){
-  const amount=prompt("Jumlah transfer antar akun (Rp):","500000");
-  if(amount===null)return; const n=Number(String(amount).replace(/[^0-9]/g,""));
-  if(n<=0)return appAlert("Jumlah transfer harus lebih dari 0.","Transfer");
-  const dir=confirm("OK = Usaha → Rumah\nBatal = Rumah → Usaha")?"usaha_to_rumah":"rumah_to_usaha";
-  const now=localDT(), note=dir==="usaha_to_rumah"?"Transfer dari kas usaha ke rumah":"Transfer dari rumah ke usaha";
+  const modal=$("transferModal");
+  if(!modal)return;
+  $("transferAmount").value="500000";
+  $("transferDirection").value=appMode==="usaha"?"usaha_to_rumah":"rumah_to_usaha";
+  $("transferNote").value="";
+  modal.classList.add("show");
+  setTimeout(()=>$("transferAmount")?.focus(),80);
+}
+function closeTransfer(){ $("transferModal")?.classList.remove("show"); }
+function saveTransfer(){
+  const n=Number(String($("transferAmount")?.value||"").replace(/[^0-9]/g,""));
+  if(n<=0)return appAlert("Jumlah transfer harus lebih dari 0.","Transfer Antar Akun");
+  const dir=$("transferDirection")?.value;
+  const detail=String($("transferNote")?.value||"").trim();
+  const baseNote=dir==="usaha_to_rumah"?"Transfer dari kas usaha ke rumah":"Transfer dari rumah ke usaha";
+  const note=detail?`${baseNote} • ${detail}`:baseNote;
   const targetKey=dir==="usaha_to_rumah"?HOME_KEY:KEY;
   const target=(()=>{try{return JSON.parse(localStorage.getItem(targetKey)||"null")||{tx:[]}}catch(e){return {tx:[]}}})();
   const id=Date.now();
@@ -483,8 +494,8 @@ function openTransfer(){
   }else if(appMode==="rumah" && dir==="rumah_to_usaha"){
     store.tx.push({id,type:"out",date:now,name:"Transfer ke Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
     target.tx.push({id:id+1,type:"in",date:now,name:"Transfer dari Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-  }else{return appAlert("Arah transfer tidak sesuai dengan mode yang sedang dibuka.","Transfer");}
-  persistModeStore(); localStorage.setItem(targetKey,JSON.stringify(target)); refresh();
+  }else{return appAlert("Arah transfer tidak sesuai dengan mode yang sedang dibuka.","Transfer Antar Akun");}
+  persistModeStore(); localStorage.setItem(targetKey,JSON.stringify(target)); closeTransfer(); refresh();
   appAlert(`Transfer ${money(n)} berhasil dicatat di kedua pembukuan.`,"Transfer Antar Akun");
 }
 
@@ -525,10 +536,26 @@ function renderDashboard(){
 }
 
 function renderTransactions(){
-  const q=($('search')?.value||'').toLowerCase(), from=$('from')?.value||'', to=$('to')?.value||'', month=$('kasMonth')?.value||today().slice(0,7); if($('kasMonth')&&!$('kasMonth').value)$('kasMonth').value=month;
-  let r=store.tx.filter(x=>(txTab==='all'||x.type===txTab)&&(!q||(x.name+' '+(x.note||'')).toLowerCase().includes(q))&&txDay(x).slice(0,7)===month&&(!from||txDay(x)>=from)&&(!to||txDay(x)<=to)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
-  const total=sum(r,txTab==='out'?'out':'in'); $('kasTotal').innerHTML=`Total ${txTab==='out'?'Pengeluaran':'Pemasukan'} <b>${money(total)}</b>`;
-  $('txCards').innerHTML=r.map(x=>{const xid=esc(String(x.id));return `<div class="txWrap" data-tx-id="${xid}"><div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'▣':'■'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}</small>${x.note?`<small>${esc(x.note)}</small>`:''}</div><div class="txAmount ${x.type==='in'?'green':'red'}">${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button><button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div></div>`}).join('')||'<div class="empty">Belum ada transaksi.</div>';
+  const q=($('search')?.value||'').toLowerCase(), from=$('from')?.value||'', to=$('to')?.value||'', month=$('kasMonth')?.value||today().slice(0,7);
+  if($('kasMonth')&&!$('kasMonth').value)$('kasMonth').value=month;
+  const type=txTab==='in'||txTab==='out'?txTab:'all';
+  let r=store.tx.filter(x=>(type==='all'||x.type===type)&&(!q||(x.name+' '+(x.note||'')).toLowerCase().includes(q))&&txDay(x).slice(0,7)===month&&(!from||txDay(x)>=from)&&(!to||txDay(x)<=to)).sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  const totalIn=sum(r,'in'), totalOut=sum(r,'out'), net=totalIn-totalOut;
+  if($('kasReceive'))$('kasReceive').textContent=money(totalIn);
+  if($('kasPay'))$('kasPay').textContent=money(totalOut);
+  if($('kasBalance'))$('kasBalance').textContent=money(net);
+  if($('kasTotal'))$('kasTotal').textContent=`${r.length} transaksi`;
+
+  const groups={};
+  r.forEach(x=>{const day=txDay(x);(groups[day]||(groups[day]=[])).push(x)});
+  const days=Object.keys(groups).sort((a,b)=>b.localeCompare(a));
+  $('txCards').innerHTML=days.map(day=>{
+    const rows=groups[day];
+    const dayIn=sum(rows,'in'), dayOut=sum(rows,'out');
+    const label=new Date(day+'T00:00:00').toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+    const items=rows.map(x=>{const xid=esc(String(x.id));return `<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button><button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div>`}).join('');
+    return `<div class="txDateGroup"><div class="txDateHead"><b>${label}</b><span><em class="green">+${money(dayIn)}</em> <em class="red">-${money(dayOut)}</em></span></div>${items}</div>`;
+  }).join('')||'<div class="empty kasEmpty">Belum ada transaksi pada periode ini.</div>';
 }
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
