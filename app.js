@@ -330,6 +330,11 @@ function showPage(id,btn){
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   target.classList.add('active');
   document.body.classList.toggle('kasPageActive', id==='transaksi');
+  if(id==='transaksi'){
+    const header=document.querySelector('.appHeader');
+    const h=header?.getBoundingClientRect()?.height||68;
+    document.documentElement.style.setProperty('--kas-header-h', `${Math.ceil(h)}px`);
+  }
   const kasActions=$('kasFixedActions');
   if(kasActions)kasActions.setAttribute('aria-hidden', id==='transaksi'?'false':'true');
   document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));
