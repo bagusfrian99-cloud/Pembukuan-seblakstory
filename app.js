@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.2";
+const APP_VERSION="3.4.3";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -614,24 +614,43 @@ function closeVoiceCapture(){$("voiceCaptureModal")?.classList.remove('show');ac
 function cancelVoiceCapture(){try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();}
 function retryVoiceCapture(){const t=activeVoiceType||'out';try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();setTimeout(()=>startVoiceTransaction(t),80);}
 function processVoiceCapture(){
-  const text=activeVoiceText,type=activeVoiceType||'out';
+  const text=String(activeVoiceText||'').trim(), type=activeVoiceType==='in'?'in':'out';
   if(!text){setVoiceCaptureState('error','Tidak ada hasil suara.');return;}
-  const p=parseVoiceTransaction(text,type);
-  if(!p.amount){setVoiceCaptureState('error','Nominal belum terbaca. Ulangi dan sebutkan jumlah, misalnya “25 ribu”.');return;}
-  closeVoiceCapture();
-  openTx(null,type);
-  if(type==='in'){$('tIncomeName').value=p.paymentMethod==='Non Tunai'?'Non Tunai':'Tunai';}
-  else{$('tName').value=p.item;$('tExpensePayment').value=p.paymentMethod;}
-  $('tAmount').value=Math.round(p.amount);
-  $('tNote').value=`Input suara: ${text}`;
-  if(type==='out'&&p.quantity&&p.unitPrice){
-    pendingVoiceStock={item:p.item,quantity:p.quantity,unit:p.unit,unitPrice:p.unitPrice};
-    const needle=p.item.toLowerCase();
-    const st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle)||stocks.find(a=>{const n=String(a.name||'').trim().toLowerCase();return n.includes(needle)||needle.includes(n)});
-    $('tNote').value+=st?` • Stok ${st.name} +${p.quantity} ${p.unit}`:' • Barang belum ditemukan di Stok';
+  try{
+    const parsed=parseVoiceTransaction(text,type);
+    if(!parsed.amount){setVoiceCaptureState('error','Nominal belum terbaca. Ulangi dan sebutkan jumlah, misalnya “25 ribu”.');return;}
+
+    // Ambil data voice terlebih dahulu agar tidak hilang saat modal transaksi dibuka.
+    const voiceStock=(type==='out'&&parsed.quantity&&parsed.unitPrice)?{item:parsed.item,quantity:parsed.quantity,unit:parsed.unit,unitPrice:parsed.unitPrice}:null;
+    const voiceNote=`Input suara: ${text}`;
+    const payment=parsed.paymentMethod==='Non Tunai'?'Non Tunai':'Tunai';
+
+    // Tutup preview voice lalu buka form transaksi biasa.
+    closeVoiceCapture();
+    openTx(null,type);
+
+    if(type==='in'){
+      $('tIncomeName').value=payment;
+    }else{
+      $('tName').value=parsed.item||'Pengeluaran';
+      $('tExpensePayment').value=payment;
+    }
+    $('tAmount').value=String(Math.round(parsed.amount));
+    $('tNote').value=voiceNote;
+
+    if(voiceStock){
+      pendingVoiceStock=voiceStock;
+      const needle=String(parsed.item||'').toLowerCase();
+      const st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle)||stocks.find(a=>{const n=String(a.name||'').trim().toLowerCase();return n&&needle&&(n.includes(needle)||needle.includes(n))});
+      $('tNote').value+=st?` • Stok ${st.name} +${parsed.quantity} ${parsed.unit}`:' • Barang belum ditemukan di Stok';
+    }
+    $('modalTitle').textContent='Konfirmasi Input Suara';
+  }catch(err){
+    console.error('processVoiceCapture error',err);
+    setVoiceCaptureState('error','Input suara gagal diproses. Tekan Ulangi dan coba lagi.');
   }
-  $('modalTitle').textContent='Konfirmasi Input Suara';
 }
+window.processVoiceCapture=processVoiceCapture;
 function startVoiceTransaction(type){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return appAlert('Fitur suara belum didukung browser ini. Gunakan Chrome di Android.','Input Suara');
