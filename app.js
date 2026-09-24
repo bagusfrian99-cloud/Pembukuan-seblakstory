@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.3";
+const APP_VERSION="3.4.5";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -554,14 +554,22 @@ function voiceNumberToValue(text){
   return Math.round(total+current);
 }
 function parseVoiceMoney(text){
-  const s=String(text||'').toLowerCase();
+  const s=String(text||'').toLowerCase().replace(/\s+/g,' ').trim();
+  if(!s)return 0;
+  // 1) If speech recognition returned only a money token, parse it directly.
+  const bare=s.match(/^(?:rp\.?\s*)?(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d+(?:,\d+)?)(?:\s*(juta|jt|ribu|rb))?$/i);
+  if(bare){const v=normalizeVoiceNumberToken((bare[1]||'')+(bare[2]?' '+bare[2]:''));if(v)return v;}
+  // 2) Numeric amount following common money words.
   const patterns=[
-    /(?:sebesar|total|harga|bayar|terima|nominal)\s+(\d+(?:[.,]\d+)?\s*(?:juta|jt|ribu|rb)?)/i,
-    /(\d+(?:[.,]\d+)?\s*(?:juta|jt|ribu|rb))\b/i
+    /(?:sebesar|total|harga|seharga|bayar|terima|nominal|jumlah)\s*[:=]?\s*(rp\.?\s*)?(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))?/i,
+    /(rp\.?\s*)?(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))\b/i
   ];
-  for(const re of patterns){const m=s.match(re);if(m){const v=normalizeVoiceNumberToken(m[1]);if(v)return v;}}
-  const wordMatch=s.match(/(?:sebesar|total|harga|bayar|terima|nominal)\s+((?:nol|satu|se|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|dua puluh|tiga puluh|empat puluh|lima puluh|enam puluh|tujuh puluh|delapan puluh|sembilan puluh|seratus|dua ratus|lima ratus|\s|ribu|juta|belas|puluh|ratus)+?)(?=\s+(?:tunai|cash|transfer|qris|non[- ]?tunai|per|tiap|\/)|$)/i);
+  for(const re of patterns){const m=s.match(re);if(m){const token=(m[2]||m[1]||'')+(m[3]?' '+m[3]:'');const v=normalizeVoiceNumberToken(token);if(v)return v;}}
+  const wordMatch=s.match(/(?:sebesar|total|harga|seharga|bayar|terima|nominal|jumlah)\s+((?:nol|satu|se|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|dua puluh|tiga puluh|empat puluh|lima puluh|enam puluh|tujuh puluh|delapan puluh|sembilan puluh|seratus|dua ratus|tiga ratus|empat ratus|lima ratus|enam ratus|tujuh ratus|delapan ratus|sembilan ratus|\s|ribu|juta|belas|puluh|ratus)+?)(?=\s+(?:tunai|cash|transfer|qris|non[- ]?tunai|per|tiap|\/)|$)/i);
   if(wordMatch){const v=voiceNumberToValue(wordMatch[1]);if(v)return v;}
+  // 3) Final fallback: find a standalone dotted thousands number such as 25.000.
+  const dotted=s.match(/(?:^|\s)(\d{1,3}(?:\.\d{3})+(?:,\d+)?)(?=\s|$)/);
+  if(dotted){const v=normalizeVoiceNumberToken(dotted[1]);if(v)return v;}
   return 0;
 }
 function parseVoiceTransaction(text,forcedType){
@@ -618,6 +626,11 @@ function processVoiceCapture(){
   if(!text){setVoiceCaptureState('error','Tidak ada hasil suara.');return;}
   try{
     const parsed=parseVoiceTransaction(text,type);
+    // Jika hasil speech hanya berupa nominal (contoh: 25.000), gunakan langsung sebagai jumlah.
+    if(!parsed.amount){
+      const fallback=voiceNumberToValue(text);
+      if(fallback>0) parsed.amount=fallback;
+    }
     if(!parsed.amount){setVoiceCaptureState('error','Nominal belum terbaca. Ulangi dan sebutkan jumlah, misalnya “25 ribu”.');return;}
 
     // Ambil data voice terlebih dahulu agar tidak hilang saat modal transaksi dibuka.
