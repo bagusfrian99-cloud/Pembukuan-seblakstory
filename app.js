@@ -378,10 +378,12 @@ function initBackNavigation(){
 }
 function toggleMenu(){ page('lainnya',document.querySelector('[data-page="lainnya"]')); }
 let txTab='all';
+let pendingExpensePhoto='';
 function setTxTab(tab){ txTab=tab||'all'; const ft=$('filterType'); if(ft)ft.value=txTab; renderTransactions(); }
 
 function updateTxNameField(){
   const isIncome=$("tType").value==="in";
+  const photoWrap=$("expensePhotoWrap"); if(photoWrap) photoWrap.style.display=isIncome?"none":"block";
   if(appMode==="rumah"){
     $("incomeNameWrap").style.display="none";
     $("expenseNameWrap").style.display="block";
@@ -403,6 +405,10 @@ function openTx(id=null, forcedType=null){
   $("tName").value="";
   $("tAmount").value="";
   $("tNote").value="";
+  pendingExpensePhoto="";
+  const photoInput=$("tPhoto"); if(photoInput) photoInput.value="";
+  const photoPreview=$("expensePhotoPreview"); if(photoPreview){photoPreview.hidden=true;photoPreview.innerHTML="";}
+  const photoRemove=$("photoRemoveBtn"); if(photoRemove) photoRemove.hidden=true;
   $("tExpensePayment").value="Tunai";
   $("tType").value=forcedType||"in";
   if(id){
@@ -421,12 +427,14 @@ function openTx(id=null, forcedType=null){
       }
       $("tAmount").value=x.amount;
       $("tNote").value=x.note||"";
+      pendingExpensePhoto=(x.type==="out"&&x.photo)?String(x.photo):"";
+      showExpensePhotoPreview(pendingExpensePhoto);
     }
   }
   updateTxNameField();
 }
 function closeModal(){$("modal").classList.remove("show")}
-function saveTx(){
+async function saveTx(){
   const isIncome=$("tType").value==="in";
   let name=appMode==="rumah" ? $("tName").value.trim() : (isIncome ? $("tIncomeName").value : $("tName").value.trim());
   const paymentMethod=isIncome ? name : ($("tExpensePayment").value||"Tunai");
@@ -434,10 +442,36 @@ function saveTx(){
   if(!name||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
   const date=$("tDate").value||localDT();
   const old=id?store.tx.find(a=>a.id==id):null;
-  let x={id:id?Number(id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),source:old?.source||"MANUAL",sourceId:old?.sourceId||null};
+  let photo=isIncome?"":(pendingExpensePhoto||old?.photo||"");
+  const x={id:id?Number(id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null};
   if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);
   persist(); closeModal(); refresh();
   if(document.getElementById("laporan")?.classList.contains("active")) renderReport();
+}
+
+function showExpensePhotoPreview(data){
+  const wrap=$("expensePhotoWrap"), prev=$("expensePhotoPreview"), remove=document.querySelector('.photoRemoveBtn');
+  if(!wrap||!prev)return;
+  wrap.style.display=$("tType")?.value==="out"?"block":"none";
+  if(data){prev.hidden=false;prev.innerHTML=`<img src="${esc(data)}" alt="Pratinjau struk">`;if(remove)remove.hidden=false;}
+  else {prev.hidden=true;prev.innerHTML="";if(remove)remove.hidden=true;}
+}
+function clearExpensePhoto(){pendingExpensePhoto="";const i=$("tPhoto");if(i)i.value="";showExpensePhotoPreview("");}
+function previewExpensePhoto(input){
+  const file=input?.files?.[0]; if(!file)return;
+  if(!file.type.startsWith('image/'))return appAlert('File harus berupa foto.','Foto struk');
+  const reader=new FileReader();
+  reader.onload=()=>{
+    const img=new Image();
+    img.onload=()=>{
+      const max=1000, scale=Math.min(1,max/Math.max(img.width,img.height));
+      const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*scale)); c.height=Math.max(1,Math.round(img.height*scale));
+      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,c.width,c.height);
+      pendingExpensePhoto=c.toDataURL('image/jpeg',0.72); showExpensePhotoPreview(pendingExpensePhoto);
+    };
+    img.src=reader.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function txPaymentMethod(x){
@@ -562,10 +596,13 @@ function renderTransactions(){
     const rows=groups[day];
     const dayIn=sum(rows,'in'), dayOut=sum(rows,'out');
     const label=new Date(day+'T00:00:00').toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-    const items=rows.map(x=>{const xid=esc(String(x.id));return `<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div><button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button><button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div>`}).join('');
+    const items=rows.map(x=>{const xid=esc(String(x.id));return `<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div>${x.type==='out'&&x.photo?`<button type="button" class="receiptBtn" data-photo="${esc(String(x.photo))}" aria-label="Lihat struk">▣</button>`:''}<button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button><button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div>`}).join('');
     return `<div class="txDateGroup"><div class="txDateHead"><b>${label}</b><span><em class="green">+${money(dayIn)}</em> <em class="red">-${money(dayOut)}</em></span></div>${items}</div>`;
   }).join('')||'<div class="empty kasEmpty">Belum ada transaksi pada periode ini.</div>';
 }
+
+function openReceiptPhoto(data){const m=$("receiptModal"),v=$("receiptPhotoView");if(!m||!v)return;v.innerHTML=`<img src="${esc(data)}" alt="Foto struk pengeluaran">`;m.classList.add('show')}
+function closeReceiptPhoto(){$("receiptModal")?.classList.remove('show')}
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
 function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
@@ -1265,6 +1302,8 @@ function deleteSelectedTx(){if(selectedTxId!==null)deleteTxFromInline(selectedTx
   if(!root || root.dataset.actionsReady==='1') return;
   root.dataset.actionsReady='1';
   root.addEventListener('click',e=>{
+    const receipt=e.target.closest('.receiptBtn');
+    if(receipt && root.contains(receipt)){ e.preventDefault(); e.stopPropagation(); openReceiptPhoto(receipt.dataset.photo||''); return; }
     const action=e.target.closest('.txActionBtn,.txEditBtn,.txDeleteBtn');
     if(!action || !root.contains(action)) return;
     e.preventDefault();
