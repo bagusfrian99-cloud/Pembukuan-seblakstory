@@ -248,3 +248,19 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 /* v3.3.88: foto struk pengeluaran */
 .expensePhotoWrap{margin-top:4px;padding:10px;background:#f7f8fa;border-radius:12px}.expensePhotoWrap small{font-weight:500;color:#728096}.expensePhotoPreview{margin-top:6px;max-height:170px;overflow:hidden;border-radius:10px;background:#fff;border:1px solid #e1e5ea}.expensePhotoPreview img{display:block;width:100%;max-height:170px;object-fit:contain}.photoRemoveBtn{border:0;background:#ffe5e5;color:#c62828;border-radius:8px;padding:7px 10px;margin-top:6px;font-weight:700}.receiptBtn{border:0;background:#fff3cd;color:#8a6200;border-radius:7px;width:26px;height:26px;font-size:14px}.receiptModalBox{max-height:92vh}.receiptPhotoView{background:#f5f6f7;border-radius:12px;min-height:120px;display:grid;place-items:center;overflow:auto}.receiptPhotoView img{display:block;max-width:100%;max-height:70vh;width:auto;height:auto;object-fit:contain}
+
+/* v3.3.90: perbaikan menu titik tiga + viewer foto struk */
+.txWrap{position:relative}
+.inlineTxActions{position:relative;z-index:2;display:flex;gap:7px;padding:7px 10px 9px 58px;background:#fffdf0;border-bottom:1px solid #e5e8eb}
+.inlineTxActions[hidden]{display:none!important}
+.inlineTxActions button{flex:1;min-height:34px;border:1px solid #dfe3e8;background:#fff;border-radius:9px;padding:7px 8px;font-size:10px;font-weight:800;color:#263248}
+.inlineTxActions .danger{color:#c62828;border-color:#f0bcbc;background:#fff5f5}
+.txPhotoBtn{background:#fff8cf!important;color:#7a5b00!important}
+.receiptBtn{position:relative;z-index:3;flex:0 0 28px;cursor:pointer}
+#receiptModal{z-index:1000}
+#receiptModal .modalbox{width:min(94vw,520px);max-height:90vh;overflow:hidden}
+#receiptModal .modalHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+#receiptModal .modalHead h2{margin:0}
+#receiptModal .modalClose{border:0;background:#f1f3f5;border-radius:9px;width:34px;height:34px;font-weight:900}
+#receiptModal .receiptPhotoView{max-height:68vh;min-height:180px;overflow:auto;background:#f5f6f7;border-radius:12px;padding:8px}
+#receiptModal .receiptPhotoView img{display:block;max-width:100%;max-height:64vh;width:auto;height:auto;margin:auto;object-fit:contain}

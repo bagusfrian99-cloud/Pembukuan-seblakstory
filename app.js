@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.84";
+const APP_VERSION="3.3.90";
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
 const MODE_KEY="seblak_story_mode_v1";
@@ -208,7 +208,7 @@ async function hasBackupEncryption(){return !!(await getLocalCryptoKey())}
 async function encryptedBackupObject(){
   const key=await getLocalCryptoKey();
   if(!key)throw new Error("Enkripsi backup belum diaktifkan. Masukkan password backup terlebih dahulu.");
-  const plain=JSON.stringify(backupPlainPayload());
+  const plain=JSON.stringify(await backupPlainPayload());
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(plain));
   const meta=JSON.parse(localStorage.getItem("seblak_story_backup_crypto_meta_v1")||"null");
@@ -228,9 +228,69 @@ async function decryptBackupObject(root,password){
   localStorage.setItem("seblak_story_backup_crypto_meta_v1",JSON.stringify({salt:root.salt,wrappedKey:root.wrappedKey,updatedAt:new Date().toISOString()}));
   return payload;
 }
-function backupPlainPayload(){
+async function compressReceiptDataURL(data){
+  if(!data||typeof data!=="string"||!data.startsWith("data:image/"))return data||"";
+  try{
+    const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=data;});
+    const max=700;
+    const scale=Math.min(1,max/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
+    const c=document.createElement("canvas");
+    c.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
+    c.height=Math.max(1,Math.round((img.naturalHeight||img.height)*scale));
+    const ctx=c.getContext("2d",{alpha:false});
+    ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
+    let out="";
+    if(c.toDataURL("image/webp",0.45).startsWith("data:image/webp")) out=c.toDataURL("image/webp",0.45);
+    else out=c.toDataURL("image/jpeg",0.50);
+    // Keep backup compact even for unusually detailed receipts.
+    if(out.length>140000){
+      out=(c.toDataURL("image/webp",0.30).startsWith("data:image/webp")?c.toDataURL("image/webp",0.30):c.toDataURL("image/jpeg",0.35));
+    }
+    return out;
+  }catch(e){return data;}
+}
+
+async function compressStoredReceiptPhotos(){
+  try{
+    const stores=[{key:KEY,store:appMode==="usaha"?store:null},{key:HOME_KEY,store:appMode==="rumah"?store:null}];
+    for(const item of stores){
+      const raw=localStorage.getItem(item.key); if(!raw)continue;
+      let obj; try{obj=JSON.parse(raw);}catch(e){continue;}
+      if(!obj||!Array.isArray(obj.tx))continue;
+      let changed=false;
+      for(const tx of obj.tx){
+        if(tx?.type==="out"&&tx.photo&&String(tx.photo).startsWith("data:image/")){
+          const before=String(tx.photo); const after=await compressReceiptDataURL(before);
+          if(after&&after.length<before.length){tx.photo=after;changed=true;}
+        }
+      }
+      if(changed)localStorage.setItem(item.key,JSON.stringify(obj));
+    }
+    store=loadModeStore();
+    refresh();
+  }catch(e){}
+}
+
+async function backupPlainPayload(){
   const all={};
   for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k)all[k]=localStorage.getItem(k)}
+  // Ensure older receipts are compressed before being packed into JSON/GitHub backup.
+  for(const key of [KEY,HOME_KEY]){
+    const raw=all[key]; if(!raw)continue;
+    try{
+      const obj=JSON.parse(raw);
+      if(Array.isArray(obj?.tx)){
+        let changed=false;
+        for(const tx of obj.tx){
+          if(tx?.type==="out"&&tx.photo&&String(tx.photo).startsWith("data:image/")){
+            const before=String(tx.photo); const after=await compressReceiptDataURL(before);
+            if(after&&after.length<before.length){tx.photo=after;changed=true;}
+          }
+        }
+        if(changed)all[key]=JSON.stringify(obj);
+      }
+    }catch(e){}
+  }
   return {app:"Seblak Story Pembukuan",appVersion:APP_VERSION,exportedAt:new Date().toISOString(),data:all};
 }
 async function ensureBackupEncryption(){
@@ -467,7 +527,7 @@ function previewExpensePhoto(input){
       const max=1000, scale=Math.min(1,max/Math.max(img.width,img.height));
       const c=document.createElement('canvas'); c.width=Math.max(1,Math.round(img.width*scale)); c.height=Math.max(1,Math.round(img.height*scale));
       const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,c.width,c.height);
-      pendingExpensePhoto=c.toDataURL('image/jpeg',0.72); showExpensePhotoPreview(pendingExpensePhoto);
+      compressReceiptDataURL(c.toDataURL('image/jpeg',0.65)).then(comp=>{pendingExpensePhoto=comp;showExpensePhotoPreview(pendingExpensePhoto)});
     };
     img.src=reader.result;
   };
@@ -596,12 +656,13 @@ function renderTransactions(){
     const rows=groups[day];
     const dayIn=sum(rows,'in'), dayOut=sum(rows,'out');
     const label=new Date(day+'T00:00:00').toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-    const items=rows.map(x=>{const xid=esc(String(x.id));return `<div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div>${x.type==='out'&&x.photo?`<button type="button" class="receiptBtn" data-photo="${esc(String(x.photo))}" aria-label="Lihat struk">▣</button>`:''}<button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button><button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div>`}).join('');
+    const items=rows.map(x=>{const xid=esc(String(x.id));return `<div class="txWrap"><div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div>${x.type==='out'&&x.photo?`<button type="button" class="receiptBtn" data-tx-id="${xid}" aria-label="Lihat struk">▣</button>`:''}<button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button>${x.type==='out'&&x.photo?`<button type="button" class="txPhotoBtn" data-tx-id="${xid}">▣ Lihat Foto</button>`:''}<button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div></div>`}).join('');
     return `<div class="txDateGroup"><div class="txDateHead"><b>${label}</b><span><em class="green">+${money(dayIn)}</em> <em class="red">-${money(dayOut)}</em></span></div>${items}</div>`;
   }).join('')||'<div class="empty kasEmpty">Belum ada transaksi pada periode ini.</div>';
 }
 
-function openReceiptPhoto(data){const m=$("receiptModal"),v=$("receiptPhotoView");if(!m||!v)return;v.innerHTML=`<img src="${esc(data)}" alt="Foto struk pengeluaran">`;m.classList.add('show')}
+function openReceiptPhoto(data){const m=$("receiptModal"),v=$("receiptPhotoView");if(!m||!v||!data)return;v.innerHTML='';const img=document.createElement('img');img.alt='Foto struk pengeluaran';img.src=data;img.onerror=()=>{v.innerHTML='<div class="empty">Foto struk tidak dapat ditampilkan.</div>'};v.appendChild(img);m.classList.add('show')}
+function openReceiptPhotoById(id){const x=store.tx.find(a=>String(a.id)===String(id));if(!x||x.type!=="out"||!x.photo)return appAlert("Foto struk tidak tersedia pada transaksi ini.","Foto Struk");openReceiptPhoto(String(x.photo))}
 function closeReceiptPhoto(){$("receiptModal")?.classList.remove('show')}
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
@@ -1302,9 +1363,9 @@ function deleteSelectedTx(){if(selectedTxId!==null)deleteTxFromInline(selectedTx
   if(!root || root.dataset.actionsReady==='1') return;
   root.dataset.actionsReady='1';
   root.addEventListener('click',e=>{
-    const receipt=e.target.closest('.receiptBtn');
-    if(receipt && root.contains(receipt)){ e.preventDefault(); e.stopPropagation(); openReceiptPhoto(receipt.dataset.photo||''); return; }
-    const action=e.target.closest('.txActionBtn,.txEditBtn,.txDeleteBtn');
+    const receipt=e.target.closest('.receiptBtn,.txPhotoBtn');
+    if(receipt && root.contains(receipt)){ e.preventDefault(); e.stopPropagation(); openReceiptPhotoById(receipt.dataset.txId||''); return; }
+    const action=e.target.closest('.txActionBtn,.txEditBtn,.txDeleteBtn,.txPhotoBtn');
     if(!action || !root.contains(action)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -1571,6 +1632,8 @@ function importPOSBackup(e){
 }
 
 document.addEventListener("DOMContentLoaded",()=>{
+  // Compress older receipt photos once so local data and future backups stay small.
+  setTimeout(()=>compressStoredReceiptPhotos(),800);
   const gs=readGitHubSettings();
   if(gs.auto && githubConfigReady(gs)) setTimeout(()=>githubBackupNow(false),1200);
 
