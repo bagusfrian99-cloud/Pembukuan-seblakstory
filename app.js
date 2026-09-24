@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.5";
+const APP_VERSION="3.4.6";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -562,12 +562,16 @@ function parseVoiceMoney(text){
   // 2) Numeric amount following common money words.
   const patterns=[
     /(?:sebesar|total|harga|seharga|bayar|terima|nominal|jumlah)\s*[:=]?\s*(rp\.?\s*)?(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))?/i,
-    /(rp\.?\s*)?(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))\b/i
+    /(rp\.?\s*)(\d{1,3}(?:[.]\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))?\b/i,
+    /(?:^|\s)(\d{1,3}(?:[.]\d{3})+(?:,\d+)?)(?=\s|$)/i,
+    /(?:^|\s)(\d+(?:[.,]\d+)?\s*(?:juta|jt|ribu|rb))(?=\s|$)/i
   ];
   for(const re of patterns){const m=s.match(re);if(m){const token=(m[2]||m[1]||'')+(m[3]?' '+m[3]:'');const v=normalizeVoiceNumberToken(token);if(v)return v;}}
   const wordMatch=s.match(/(?:sebesar|total|harga|seharga|bayar|terima|nominal|jumlah)\s+((?:nol|satu|se|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|dua puluh|tiga puluh|empat puluh|lima puluh|enam puluh|tujuh puluh|delapan puluh|sembilan puluh|seratus|dua ratus|tiga ratus|empat ratus|lima ratus|enam ratus|tujuh ratus|delapan ratus|sembilan ratus|\s|ribu|juta|belas|puluh|ratus)+?)(?=\s+(?:tunai|cash|transfer|qris|non[- ]?tunai|per|tiap|\/)|$)/i);
   if(wordMatch){const v=voiceNumberToValue(wordMatch[1]);if(v)return v;}
-  // 3) Final fallback: find a standalone dotted thousands number such as 25.000.
+  // 3) Final fallback: support a currency-prefixed or standalone amount anywhere in the sentence.
+  const currency=s.match(/\brp\.?\s*(\d{1,3}(?:\.\d{3})+(?:,\d+)?|\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))?/i);
+  if(currency){const v=normalizeVoiceNumberToken(currency[1]+(currency[2]?' '+currency[2]:''));if(v)return v;}
   const dotted=s.match(/(?:^|\s)(\d{1,3}(?:\.\d{3})+(?:,\d+)?)(?=\s|$)/);
   if(dotted){const v=normalizeVoiceNumberToken(dotted[1]);if(v)return v;}
   return 0;
@@ -587,7 +591,7 @@ function parseVoiceTransaction(text,forcedType){
   if(!amount)amount=parseVoiceMoney(s);
   let item='';
   if(type==='out'){
-    const m=s.match(new RegExp('(?:beli|belanja|bayar|membeli|membayar)\\s+(.+?)(?=\\s+(?:\\d+(?:[.,]\\d+)?\\s*(?:juta|jt|ribu|rb)?|'+qtyWord+')\\s*(?:'+unitPattern+')?|\\s+(?:harga|seharga|total|sebesar)\\b|\\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\\b|$)','i'));
+    const m=s.match(new RegExp('(?:beli|belanja|bayar|membeli|membayar)\\s+(.+?)(?=\\s+(?:\\d+(?:[.,]\\d+)?\\s*(?:juta|jt|ribu|rb)?|'+qtyWord+')\\s*(?:'+unitPattern+')?|\\s+(?:harga|seharga|total|sebesar)\\b|\\s+(?:rp\\.?\\s*)?\\d|\\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\\b|$)','i'));
     item=(m?.[1]||'').trim();
   } else {
     const m=s.match(new RegExp('(?:terima|menerima|masuk|penjualan|pendapatan)\\s+(.+?)(?=\\s+(?:\\d+(?:[.,]\\d+)?|'+qtyWord+')\\s*(?:juta|jt|ribu|rb)|\\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\\b|$)','i'));
