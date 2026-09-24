@@ -6,9 +6,10 @@
 <link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css"><title>Seblak Story Pembukuan</title>
 </head>
 <body>
-<header class="appHeader"><div class="topbar"><button class="iconBtn" onclick="toggleMenu()">☰</button><div class="brandLogo"><span class="logoBowl">🍜</span><div><b>Seblak Story</b><small>PEMBUKUAN</small></div></div><button class="iconBtn" onclick="appAlert('Tidak ada notifikasi baru.','Notifikasi')">♧</button></div></header>
+<header class="appHeader"><div class="topbar"><button class="iconBtn" onclick="toggleMenu()">☰</button><div class="brandLogo"><span class="logoBowl">🍜</span><div><b>Seblak Story</b><small id="modeTitle">Usaha • Seblak Story</small></div></div><button id="modeSwitchBtn" class="modeSwitch" onclick="setAppMode(appMode==='usaha'?'rumah':'usaha')">🏠 Rumah</button><button class="iconBtn" onclick="appAlert('Tidak ada notifikasi baru.','Notifikasi')">♧</button></div></header>
 <main>
 <section id="dashboard" class="page active">
+  <div class="modeLabel" id="dashboardModeLabel">Keuangan Usaha</div>
   <button type="button" class="datePicker" id="dashDateButton" onclick="openDashboardDate()">
   ▣ <span id="dashDate"></span><b>⌄</b>
 </button>
@@ -23,6 +24,7 @@
     <button type="button" class="dashboardBuyBtn wa" onclick="shareBuyListWhatsApp()">🟢 <b>Kirim Daftar Belanja via WA</b></button>
   </div>
   <button class="dashboardTelegramBtn" onclick="openTelegramDashboard()">✈️ <b>Cek Telegram</b></button>
+  <button class="homeTransferBtn" onclick="openTransfer()">⇄ <b>Transfer Antar Akun</b></button>
 </section>
 
 <section id="transaksi" class="page">
@@ -68,11 +70,12 @@
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.77</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.79 • Usaha + Rumah</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
     <button onclick="openGitHubSettings()">◉ <span>Backup ke GitHub</span> ›</button>
+    <button onclick="openTransfer()">⇄ <span>Transfer Antar Akun</span> ›</button>
     <button onclick="appAlert('Pengaturan aplikasi tersedia melalui menu ini pada versi berikutnya.','Pengaturan Aplikasi')">⚙ <span>Pengaturan Aplikasi</span> ›</button>
     <button onclick="openTelegramSettings()">✈ <span>Input Otomatis Telegram</span> ›</button>
     <button id="quickPrinterBtn" onclick="quickConnectPrinter()">🔵 <span>Hubungkan Printer</span> <b id="quickPrinterStatus">Terputus</b></button>
@@ -125,5 +128,5 @@
 </div></div>
 <div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
 <div class="modal" id="txActionModal"><div class="modalbox compact"><h2>Aksi Transaksi</h2><p id="txActionMessage" class="dialogMessage"></p><div class="actions"><button onclick="closeTxActions()">Batal</button><button class="primary" onclick="editSelectedTx()">Edit</button><button class="danger" onclick="deleteSelectedTx()">Hapus</button></div></div></div>
-<script src="app.js?v=3.3.77"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.3.77").catch(()=>{}));}</script></body></html>
+<script src="app.js?v=3.3.79"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();updateModeUI();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.3.79").catch(()=>{}));}</script></body></html>

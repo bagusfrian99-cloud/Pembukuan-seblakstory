@@ -1,5 +1,8 @@
-const APP_VERSION="3.3.77";
+const APP_VERSION="3.3.79";
 const KEY="seblak_story_v314";
+const HOME_KEY="seblak_story_rumah_v1";
+const MODE_KEY="seblak_story_mode_v1";
+let appMode=localStorage.getItem(MODE_KEY)||"usaha";
 const TELEGRAM_SETTINGS_KEY="seblak_story_telegram_v1";
 let telegramTimer=null, telegramBusy=false;
 const GITHUB_SETTINGS_KEY="seblak_story_github_backup_v1";
@@ -8,7 +11,35 @@ let githubBackupBusy=false;
 const STOCK_KEY="seblak_story_stock_v318";
 const PRINTER_SETTINGS_KEY="seblak_story_printer_ble_v1";
 let blePrinterDevice=null, blePrinterCharacteristic=null;
-let store=JSON.parse(localStorage.getItem(KEY)||"null")||{tx:[]};
+let store=loadModeStore();
+function loadModeStore(){
+  const k=appMode==="rumah"?HOME_KEY:KEY;
+  try{const x=JSON.parse(localStorage.getItem(k)||"null");return x&&Array.isArray(x.tx)?x:{tx:[]};}catch(e){return {tx:[]}}
+}
+function setAppMode(mode){
+  mode=mode==="rumah"?"rumah":"usaha";
+  if(mode===appMode)return;
+  appMode=mode;
+  localStorage.setItem(MODE_KEY,appMode);
+  store=loadModeStore();
+  normalizeTxData();
+  updateModeUI();
+  refresh();
+}
+function updateModeUI(){
+  const isHome=appMode==="rumah";
+  const title=$("modeTitle"); if(title)title.textContent=isHome?"Rumah Tangga":"Usaha • Seblak Story";
+  const modeBtn=$("modeSwitchBtn"); if(modeBtn)modeBtn.textContent=isHome?"🏪 Usaha":"🏠 Rumah";
+  const dLabel=$("dashboardModeLabel"); if(dLabel)dLabel.textContent=isHome?"Keuangan Rumah Tangga":"Keuangan Usaha";
+  const stockNav=document.querySelector("[data-page=\"stok\"]"); if(stockNav)stockNav.style.display=isHome?"none":"";
+  const syncBtn=[...document.querySelectorAll(".menuCard button")].find(b=>b.textContent.includes("Sinkron dengan POS")); if(syncBtn)syncBtn.style.display=isHome?"none":"";
+  const buyActions=document.querySelector(".dashboardBuyActions"); if(buyActions)buyActions.style.display=isHome?"none":"";
+  const tg=document.querySelector(".dashboardTelegramBtn"); if(tg)tg.style.display=isHome?"none":"";
+  const reportStock=document.querySelector("#reportStockTab"); if(reportStock)reportStock.style.display=isHome?"none":"";
+  const tab=document.querySelector("#reportFinanceTab"); if(tab)tab.textContent=isHome?"Keuangan Rumah":"Keuangan";
+}
+function persistModeStore(){localStorage.setItem(appMode==="rumah"?HOME_KEY:KEY,JSON.stringify(store));}
+
 let stocks=JSON.parse(localStorage.getItem(STOCK_KEY)||"null");
 if(!Array.isArray(stocks)){
   let legacy=null;
@@ -112,7 +143,7 @@ function appChoice(message,choices,title="Pilih Aksi"){
   });
 }
 function persist(){
-  localStorage.setItem(KEY,JSON.stringify(store));
+  persistModeStore();
   localStorage.setItem(STOCK_KEY,JSON.stringify(stocks));
   scheduleGitHubBackup();
 }
@@ -342,9 +373,17 @@ function setTxTab(tab){ txTab=tab||'in'; document.querySelectorAll('.tabs button
 
 function updateTxNameField(){
   const isIncome=$("tType").value==="in";
-  $("incomeNameWrap").style.display=isIncome?"block":"none";
-  $("expenseNameWrap").style.display=isIncome?"none":"block";
-  $("expensePaymentWrap").style.display=isIncome?"none":"block";
+  if(appMode==="rumah"){
+    $("incomeNameWrap").style.display="none";
+    $("expenseNameWrap").style.display="block";
+    $("expensePaymentWrap").style.display="block";
+    $("tName").placeholder=isIncome?"Contoh: Gaji, Pendapatan lain":"Contoh: Belanja dapur, Listrik";
+  }else{
+    $("incomeNameWrap").style.display=isIncome?"block":"none";
+    $("expenseNameWrap").style.display=isIncome?"none":"block";
+    $("expensePaymentWrap").style.display=isIncome?"none":"block";
+    $("tName").placeholder="Contoh: Beli bahan";
+  }
 }
 function openTx(id=null, forcedType=null){
   $("modal").classList.add("show");
@@ -362,7 +401,10 @@ function openTx(id=null, forcedType=null){
     if(x){
       $("tType").value=x.type;
       $("tDate").value=x.date;
-      if(x.type==="in"){
+      if(appMode==="rumah"){
+        $("tName").value=x.name||"";
+        $("tExpensePayment").value=txPaymentMethod(x);
+      }else if(x.type==="in"){
         $("tIncomeName").value=(x.name==="Non Tunai"||x.name==="Nontunai")?"Non Tunai":"Tunai";
       }else{
         $("tName").value=x.name||"";
@@ -377,7 +419,7 @@ function openTx(id=null, forcedType=null){
 function closeModal(){$("modal").classList.remove("show")}
 function saveTx(){
   const isIncome=$("tType").value==="in";
-  let name=isIncome ? $("tIncomeName").value : $("tName").value.trim();
+  let name=appMode==="rumah" ? $("tName").value.trim() : (isIncome ? $("tIncomeName").value : $("tName").value.trim());
   const paymentMethod=isIncome ? name : ($("tExpensePayment").value||"Tunai");
   let amount=Number($("tAmount").value),id=$("editId").value;
   if(!name||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
@@ -424,6 +466,26 @@ function setDashboardDate(value){
   if(!value) return;
   dashboardSelectedDate = value;
   renderDashboard();
+}
+
+function openTransfer(){
+  const amount=prompt("Jumlah transfer antar akun (Rp):","500000");
+  if(amount===null)return; const n=Number(String(amount).replace(/[^0-9]/g,""));
+  if(n<=0)return appAlert("Jumlah transfer harus lebih dari 0.","Transfer");
+  const dir=confirm("OK = Usaha → Rumah\nBatal = Rumah → Usaha")?"usaha_to_rumah":"rumah_to_usaha";
+  const now=localDT(), note=dir==="usaha_to_rumah"?"Transfer dari kas usaha ke rumah":"Transfer dari rumah ke usaha";
+  const targetKey=dir==="usaha_to_rumah"?HOME_KEY:KEY;
+  const target=(()=>{try{return JSON.parse(localStorage.getItem(targetKey)||"null")||{tx:[]}}catch(e){return {tx:[]}}})();
+  const id=Date.now();
+  if(appMode==="usaha" && dir==="usaha_to_rumah"){
+    store.tx.push({id,type:"out",date:now,name:"Transfer ke Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+    target.tx.push({id:id+1,type:"in",date:now,name:"Transfer dari Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+  }else if(appMode==="rumah" && dir==="rumah_to_usaha"){
+    store.tx.push({id,type:"out",date:now,name:"Transfer ke Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+    target.tx.push({id:id+1,type:"in",date:now,name:"Transfer dari Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+  }else{return appAlert("Arah transfer tidak sesuai dengan mode yang sedang dibuka.","Transfer");}
+  persistModeStore(); localStorage.setItem(targetKey,JSON.stringify(target)); refresh();
+  appAlert(`Transfer ${money(n)} berhasil dicatat di kedua pembukuan.`,"Transfer Antar Akun");
 }
 
 function renderDashboard(){

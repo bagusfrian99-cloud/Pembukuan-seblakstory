@@ -172,3 +172,11 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .bulkBuyName{min-width:0;display:flex;flex-direction:column;gap:2px}.bulkBuyName b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.bulkBuyName small{font-size:9px;color:#667085}
 .bulkQty{display:flex;align-items:center;gap:4px}.bulkQty button{width:28px;height:28px;border:0;border-radius:8px;background:#ffd21c;color:#111;font-size:18px;font-weight:900;line-height:1;padding:0}.bulkQty input{width:48px!important;height:28px!important;margin:0!important;padding:3px!important;text-align:center;font-size:12px!important;font-weight:800}.bulkQtyUnit{font-size:9px;color:#667085;margin-left:1px}
 @media(max-width:430px){.bulkBuyCheck{gap:6px;padding:9px 7px}.bulkQty{gap:2px}.bulkQty button{width:25px;height:26px}.bulkQty input{width:40px!important}.bulkQtyUnit{display:none}}
+.modeSwitch{width:auto!important;margin:0 8px 0 0!important;padding:8px 12px!important;border-radius:14px!important;background:#fff!important;border:1px solid #222!important;font-weight:800!important;font-size:12px!important}
+.modeLabel{font-weight:800;font-size:13px;padding:8px 12px;color:#555}
+.homeTransferBtn{width:100%;margin:10px 0;padding:12px;border:0;border-radius:14px;background:#fff4b8;color:#222;font-weight:800;box-shadow:0 2px 8px #0001}
+@media(max-width:420px){.modeSwitch{font-size:11px!important;padding:7px 9px!important}.brandLogo small{font-size:9px}}
+.modeSwitch{width:auto!important;margin:0 8px 0 0!important;padding:8px 12px!important;border-radius:14px!important;background:#fff!important;border:1px solid #222!important;font-weight:800!important;font-size:12px!important}
+.modeLabel{font-weight:800;font-size:13px;padding:8px 12px;color:#555}
+.homeTransferBtn{width:100%;margin:10px 0;padding:12px;border:0;border-radius:14px;background:#fff4b8;color:#222;font-weight:800;box-shadow:0 2px 8px #0001}
+@media(max-width:420px){.modeSwitch{font-size:11px!important;padding:7px 9px!important}.brandLogo small{font-size:9px}}
