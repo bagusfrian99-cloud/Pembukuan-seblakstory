@@ -33,7 +33,6 @@
   <div class="kasSummary"><div class="kasSummaryCell receive"><span>Kamu Menerima</span><b id="kasReceive">Rp 0</b></div><div class="kasSummaryCell pay"><span>Kamu Membayar</span><b id="kasPay">Rp 0</b></div><div class="kasSummaryCell balance"><span>Saldo</span><b id="kasBalance">Rp 0</b></div></div>
   <div class="kasHistoryHead"><b>Riwayat Transaksi</b><span id="kasTotal">Semua</span></div>
   <div id="txCards" class="listCard kasGroupedList"></div>
-  <div class="kasInputActions"><button class="receiveBtn" onclick="openTx(null,'in')">＋ Kamu Menerima</button><button class="payBtn" onclick="openTx(null,'out')">＋ Kamu Membayar</button></div>
 </section>
 
 <section id="stok" class="page">
@@ -70,7 +69,7 @@
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.84 • Usaha + Rumah</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.3.85 • Usaha + Rumah</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
@@ -87,6 +86,8 @@
 <section id="backup" class="page"><div class="sectionHead"><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">‹</button><h2>Backup & Restore</h2><span></span></div><div class="card"><p>Backup menyimpan seluruh data dan pengaturan aplikasi ke file JSON terenkripsi. Token juga ikut tersimpan dalam bentuk terenkripsi.</p><div class="actions"><button class="primary" onclick="backup()">⬇ Backup Data</button><label class="fileBtn">⬆ Restore Data<input type="file" accept=".json" onchange="restore(event)"></label><button class="danger" onclick="clearAll()">Hapus Semua Data</button></div></div><div class="card"><h3>Data</h3><div id="dataInfo"></div></div></section>
 <section id="syncpos" class="page"><div class="sectionHead"><button onclick="page('lainnya',document.querySelector('[data-page=lainnya]'))">‹</button><h2>Sinkron POS</h2><span></span></div><div class="card"><h3>Import Backup POS</h3><label class="fileBtn primary">📥 Pilih Backup POS<input type="file" accept=".json,application/json" onchange="importPOSBackup(event)"></label><div id="syncStatus" class="sub">Belum ada sinkronisasi.</div><div id="syncPreview" class="sync-preview"><div class="summary-row"><span>💵 Tunai</span><strong>Rp 0</strong></div><div class="summary-row"><span>💳 Non Tunai</span><strong>Rp 0</strong></div><div class="summary-row"><span>💰 Total Pemasukan</span><strong>Rp 0</strong></div></div></div><div class="card"><h3>Riwayat Sinkronisasi</h3><div id="syncHistory"><div class="empty">Belum ada riwayat.</div></div></div></section>
 </main>
+
+<div id="kasFixedActions" class="kasInputActions" aria-label="Input Buku Kas"><button class="receiveBtn" onclick="openTx(null,'in')">＋ Kamu Menerima</button><button class="payBtn" onclick="openTx(null,'out')">＋ Kamu Membayar</button></div>
 
 <nav class="bottomNav"><button data-page="dashboard" class="active" onclick="page('dashboard',this)">⌂<small>Beranda</small></button><button data-page="transaksi" onclick="page('transaksi',this)">▣<small>Buku Kas</small></button><button data-page="stok" onclick="page('stok',this);return false">▦<small>Stok</small></button><button data-page="laporan" onclick="page('laporan',this)">▤<small>Laporan</small></button><button data-page="lainnya" onclick="page('lainnya',this)">☰<small>Lainnya</small></button></nav>
 
@@ -143,5 +144,5 @@
 </div></div>
 <div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
 <div class="modal" id="txActionModal"><div class="modalbox compact"><h2>Aksi Transaksi</h2><p id="txActionMessage" class="dialogMessage"></p><div class="actions"><button onclick="closeTxActions()">Batal</button><button class="primary" onclick="editSelectedTx()">Edit</button><button class="danger" onclick="deleteSelectedTx()">Hapus</button></div></div></div>
-<script src="app.js?v=3.3.84"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();updateModeUI();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.3.84").catch(()=>{}));}</script></body></html>
+<script src="app.js?v=3.3.85"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();updateModeUI();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.3.85").catch(()=>{}));}</script></body></html>

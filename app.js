@@ -329,6 +329,9 @@ function showPage(id,btn){
   const target=$(id); if(!target)return false;
   document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
   target.classList.add('active');
+  document.body.classList.toggle('kasPageActive', id==='transaksi');
+  const kasActions=$('kasFixedActions');
+  if(kasActions)kasActions.setAttribute('aria-hidden', id==='transaksi'?'false':'true');
   document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll(`[data-page="${id}"]`).forEach(x=>x.classList.add('active'));
   if(btn&&btn.dataset)btn.classList.add('active');
@@ -356,6 +359,7 @@ function closeAnyOpenModal(){
   return closed;
 }
 function initBackNavigation(){
+  document.body.classList.toggle('kasPageActive', (location.hash.replace(/^#/,'')||'dashboard')==='transaksi');
   const initial=location.hash.replace(/^#/,'')||'dashboard';
   history.replaceState({page:initial,root:true},'',window.location.href.split('#')[0]+'#'+initial);
   if(initial!=='dashboard')showPage(initial,document.querySelector(`[data-page="${initial}"]`));
