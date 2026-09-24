@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.0";
+const APP_VERSION="3.4.2";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -520,41 +520,133 @@ async function saveTx(){
 }
 
 
+function normalizeVoiceNumberToken(token){
+  let t=String(token||'').toLowerCase().trim().replace(/rp\.?/g,'').replace(/\s+/g,' ');
+  if(!t)return 0;
+  const m=t.match(/^(\d+(?:[.,]\d+)?)(?:\s*(juta|jt|ribu|rb))?$/i);
+  if(m){
+    let n=m[1], suffix=(m[2]||'').toLowerCase();
+    if(n.includes('.') && n.includes(',')) n=n.replace(/\./g,'').replace(',','.');
+    else if(n.includes('.') && /\.\d{3}$/.test(n)) n=n.replace(/\./g,'');
+    else if(n.includes(',') && /,\d{3}$/.test(n)) n=n.replace(/,/g,'');
+    else n=n.replace(',','.');
+    let v=Number(n); if(!Number.isFinite(v))return 0;
+    if(suffix==='juta'||suffix==='jt')v*=1000000;
+    else if(suffix==='ribu'||suffix==='rb')v*=1000;
+    return Math.round(v);
+  }
+  return 0;
+}
 function voiceNumberToValue(text){
-  const raw=String(text||'').toLowerCase().replace(/,/g,'.').trim(); if(!raw)return 0;
-  const numeric=Number(raw.replace(/[^0-9.]/g,'')); if(Number.isFinite(numeric)&&numeric>0)return numeric;
+  const raw=String(text||'').toLowerCase().replace(/-/g,' ').replace(/\s+/g,' ').trim(); if(!raw)return 0;
+  const direct=normalizeVoiceNumberToken(raw); if(direct)return direct;
   const ones={nol:0,satu:1,se:1,dua:2,tiga:3,empat:4,lima:5,enam:6,tujuh:7,delapan:8,sembilan:9,sepuluh:10,sebelas:11};
-  const words=raw.replace(/-/g,' ').split(/\s+/).filter(Boolean); let total=0,current=0;
-  for(let i=0;i<words.length;i++){const w=words[i];if(ones[w]!=null){current+=ones[w];continue;}if(ones[w]!=null&&words[i+1]==='puluh'){current+=ones[w]*10;i++;continue;}if(w==='puluh'){current=(current||1)*10;continue;}if(w==='belas'){current+=10;continue;}if(w==='ratus'){current=(current||1)*100;continue;}if(w==='ribu'){total+=(current||1)*1000;current=0;continue;}if(w==='juta'){total+=(current||1)*1000000;current=0;continue;}}
-  return total+current;
+  const words=raw.split(' ').filter(Boolean); let total=0,current=0;
+  for(let i=0;i<words.length;i++){
+    const w=words[i];
+    if(ones[w]!=null){current+=ones[w];continue;}
+    if(w==='puluh'){current=(current||1)*10;continue;}
+    if(w==='belas'){current=(current||1)+10;continue;}
+    if(w==='ratus'){current=(current||1)*100;continue;}
+    if(w==='ribu'){total+=(current||1)*1000;current=0;continue;}
+    if(w==='juta'){total+=(current||1)*1000000;current=0;continue;}
+  }
+  return Math.round(total+current);
 }
 function parseVoiceMoney(text){
   const s=String(text||'').toLowerCase();
-  const m=s.match(/(\d+(?:[.,]\d+)?)\s*(juta|jt|ribu|rb)/i); if(m)return Number(m[1].replace(',','.'))*(m[2].startsWith('j')?1000000:1000);
-  const wordMatch=s.match(/(?:sebesar|total|harga|bayar|terima)\s+([a-z -]+?)(?=\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\b|$)/i); if(wordMatch){const v=voiceNumberToValue(wordMatch[1]);if(v)return v;}
-  return voiceNumberToValue(s);
+  const patterns=[
+    /(?:sebesar|total|harga|bayar|terima|nominal)\s+(\d+(?:[.,]\d+)?\s*(?:juta|jt|ribu|rb)?)/i,
+    /(\d+(?:[.,]\d+)?\s*(?:juta|jt|ribu|rb))\b/i
+  ];
+  for(const re of patterns){const m=s.match(re);if(m){const v=normalizeVoiceNumberToken(m[1]);if(v)return v;}}
+  const wordMatch=s.match(/(?:sebesar|total|harga|bayar|terima|nominal)\s+((?:nol|satu|se|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh|sebelas|dua puluh|tiga puluh|empat puluh|lima puluh|enam puluh|tujuh puluh|delapan puluh|sembilan puluh|seratus|dua ratus|lima ratus|\s|ribu|juta|belas|puluh|ratus)+?)(?=\s+(?:tunai|cash|transfer|qris|non[- ]?tunai|per|tiap|\/)|$)/i);
+  if(wordMatch){const v=voiceNumberToValue(wordMatch[1]);if(v)return v;}
+  return 0;
 }
 function parseVoiceTransaction(text,forcedType){
   const s=String(text||'').trim().toLowerCase(), type=forcedType==='in'?'in':'out';
   const payment=/\b(qris|transfer|non[- ]?tunai|nontunai|debit|kartu)\b/i.test(s)?'Non Tunai':'Tunai';
+  const unitPattern='pack|pak|pcs|piece|pieces|buah|botol|kg|dus|lusin|liter|sachet|bungkus';
   let quantity=0,unit='',unitPrice=0,amount=0;
-  const q=s.match(/(?:\b(\d+(?:[.,]\d+)?)\s*(pack|pak|pcs|buah|botol|kg|dus|lusin)\b)/i); if(q){quantity=Number(q[1].replace(',','.'));unit=q[2].toLowerCase().replace('pak','pack');}
-  const pp=s.match(/(?:harga|seharga|@)\s*(\d+(?:[.,]\d+)?)\s*(juta|jt|ribu|rb)?\s*(?:per|\/|tiap)\s*(?:pack|pak|pcs|buah|botol|kg|dus)?/i);
-  if(pp){unitPrice=Number(pp[1].replace(',','.'))*(pp[2]?(pp[2].startsWith('j')?1000000:1000):1);}
-  if(!unitPrice){const pp2=s.match(/(\d+(?:[.,]\d+)?)\s*(juta|jt|ribu|rb)\s*(?:per|\/|tiap)\s*(?:pack|pak|pcs|buah|botol|kg|dus)/i);if(pp2)unitPrice=Number(pp2[1].replace(',','.'))*(pp2[2].startsWith('j')?1000000:1000);}
-  if(quantity&&unitPrice)amount=quantity*unitPrice; if(!amount)amount=parseVoiceMoney(s);
+  const qtyWord='satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh';
+  const q=s.match(new RegExp('(?:\\b(\\d+(?:[.,]\\d+)?|'+qtyWord+')\\s*('+unitPattern+')\\b)','i'));
+  if(q){quantity=/^\\d/.test(q[1])?Number(q[1].replace(',','.')):voiceNumberToValue(q[1]);unit=q[2].toLowerCase();if(unit==='pak')unit='pack';if(unit==='pieces')unit='piece';}
+  const pp=s.match(new RegExp('(?:harga|seharga|@)\\s*(\\d+(?:[.,]\\d+)?\\s*(?:juta|jt|ribu|rb)?)\\s*(?:per|\\/|tiap)\\s*(?:'+unitPattern+')?','i'));
+  if(pp)unitPrice=normalizeVoiceNumberToken(pp[1]);
+  if(!unitPrice){const pp2=s.match(new RegExp('(\\d+(?:[.,]\\d+)?\\s*(?:juta|jt|ribu|rb)?)\\s*(?:per|\\/|tiap)\\s*(?:'+unitPattern+')','i'));if(pp2)unitPrice=normalizeVoiceNumberToken(pp2[1]);}
+  if(quantity&&unitPrice)amount=quantity*unitPrice;
+  if(!amount)amount=parseVoiceMoney(s);
   let item='';
-  if(type==='out'){const m=s.match(/(?:beli|belanja|bayar|membeli|membayar)\s+(.+?)(?=\s+(?:\d+(?:[.,]\d+)?|satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)\s*(?:pack|pak|pcs|buah|botol|kg|dus)|\s+harga\b|\s+seharga\b|\s+total\b|\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\b|$)/i);item=(m?.[1]||'').trim();}
-  else {const m=s.match(/(?:terima|menerima|masuk|penjualan|pendapatan)\s+(.+?)(?=\s+(?:\d+(?:[.,]\d+)?|satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)\s*(?:juta|jt|ribu|rb)|\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\b|$)/i);item=(m?.[1]||'').trim();}
+  if(type==='out'){
+    const m=s.match(new RegExp('(?:beli|belanja|bayar|membeli|membayar)\\s+(.+?)(?=\\s+(?:\\d+(?:[.,]\\d+)?\\s*(?:juta|jt|ribu|rb)?|'+qtyWord+')\\s*(?:'+unitPattern+')?|\\s+(?:harga|seharga|total|sebesar)\\b|\\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\\b|$)','i'));
+    item=(m?.[1]||'').trim();
+  } else {
+    const m=s.match(new RegExp('(?:terima|menerima|masuk|penjualan|pendapatan)\\s+(.+?)(?=\\s+(?:\\d+(?:[.,]\\d+)?|'+qtyWord+')\\s*(?:juta|jt|ribu|rb)|\\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\\b|$)','i'));
+    item=(m?.[1]||'').trim();
+  }
   if(!item)item=type==='out'?'Pengeluaran':'Pemasukan';
-  return {type,amount,quantity,unit,unitPrice,item,paymentMethod:payment,raw:text};
+  return {type,amount:Math.round(amount),quantity,unit,unitPrice,item,paymentMethod:payment,raw:text};
+}
+let activeVoiceRecognition=null;
+let activeVoiceType=null;
+let activeVoiceText='';
+function setVoiceCaptureState(state,text=''){
+  const modal=$("voiceCaptureModal"),title=$("voiceCaptureTitle"),status=$("voiceCaptureStatus"),transcript=$("voiceTranscript"),actions=$("voiceCaptureActions"),icon=$("voiceCaptureIcon");
+  if(!modal)return;
+  modal.classList.add('show');
+  activeVoiceText=text||activeVoiceText||'';
+  if(state==='listening'){
+    icon.textContent='🎤'; title.textContent='Mendengarkan...'; status.textContent='Silakan bicara. Aplikasi belum menyimpan apa pun.';
+    transcript.textContent='Menunggu suara...'; transcript.classList.remove('hasText');
+    actions.innerHTML='<button type="button" onclick="cancelVoiceCapture()">Batal</button>';
+  }else if(state==='heard'){
+    icon.textContent='👂'; title.textContent='Suara berhasil didengar'; status.textContent='Periksa kalimat di bawah sebelum dilanjutkan.';
+    transcript.textContent=activeVoiceText||'Tidak ada suara yang terbaca.'; transcript.classList.toggle('hasText',!!activeVoiceText);
+    actions.innerHTML='<button type="button" onclick="cancelVoiceCapture()">Batal</button><button type="button" class="primary" onclick="processVoiceCapture()">Lanjutkan</button>';
+  }else if(state==='error'){
+    icon.textContent='⚠️'; title.textContent='Suara tidak terbaca'; status.textContent=text||'Coba tekan ulang dan bicara lebih jelas.';
+    transcript.textContent=activeVoiceText||'Tidak ada hasil suara.'; transcript.classList.toggle('hasText',!!activeVoiceText);
+    actions.innerHTML='<button type="button" onclick="cancelVoiceCapture()">Tutup</button><button type="button" class="primary" onclick="retryVoiceCapture()">🎤 Ulangi</button>';
+  }
+}
+function closeVoiceCapture(){$("voiceCaptureModal")?.classList.remove('show');activeVoiceRecognition=null;activeVoiceType=null;activeVoiceText='';}
+function cancelVoiceCapture(){try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();}
+function retryVoiceCapture(){const t=activeVoiceType||'out';try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();setTimeout(()=>startVoiceTransaction(t),80);}
+function processVoiceCapture(){
+  const text=activeVoiceText,type=activeVoiceType||'out';
+  if(!text){setVoiceCaptureState('error','Tidak ada hasil suara.');return;}
+  const p=parseVoiceTransaction(text,type);
+  if(!p.amount){setVoiceCaptureState('error','Nominal belum terbaca. Ulangi dan sebutkan jumlah, misalnya “25 ribu”.');return;}
+  closeVoiceCapture();
+  openTx(null,type);
+  if(type==='in'){$('tIncomeName').value=p.paymentMethod==='Non Tunai'?'Non Tunai':'Tunai';}
+  else{$('tName').value=p.item;$('tExpensePayment').value=p.paymentMethod;}
+  $('tAmount').value=Math.round(p.amount);
+  $('tNote').value=`Input suara: ${text}`;
+  if(type==='out'&&p.quantity&&p.unitPrice){
+    pendingVoiceStock={item:p.item,quantity:p.quantity,unit:p.unit,unitPrice:p.unitPrice};
+    const needle=p.item.toLowerCase();
+    const st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle)||stocks.find(a=>{const n=String(a.name||'').trim().toLowerCase();return n.includes(needle)||needle.includes(n)});
+    $('tNote').value+=st?` • Stok ${st.name} +${p.quantity} ${p.unit}`:' • Barang belum ditemukan di Stok';
+  }
+  $('modalTitle').textContent='Konfirmasi Input Suara';
 }
 function startVoiceTransaction(type){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR)return appAlert('Fitur suara belum didukung browser ini. Gunakan Chrome di Android.','Input Suara');
-  const rec=new SR();rec.lang='id-ID';rec.interimResults=false;rec.continuous=false;rec.maxAlternatives=1;
-  rec.onresult=e=>{const text=e.results[0][0].transcript,p=parseVoiceTransaction(text,type);if(!p.amount)return appAlert(`Saya mendengar: “${text}”\n\nNominal belum terbaca. Coba ulangi dengan menyebutkan nominal.`,'Input Suara');openTx(null,type);if(type==='in'){$('tIncomeName').value=p.paymentMethod==='Non Tunai'?'Non Tunai':'Tunai';}else{$('tName').value=p.item;$('tExpensePayment').value=p.paymentMethod;}$('tAmount').value=Math.round(p.amount);$('tNote').value=`Input suara: ${text}`;if(type==='out'&&p.quantity&&p.unitPrice){pendingVoiceStock={item:p.item,quantity:p.quantity,unit:p.unit,unitPrice:p.unitPrice};const needle=p.item.toLowerCase();const st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle)||stocks.find(a=>{const n=String(a.name||'').trim().toLowerCase();return n.includes(needle)||needle.includes(n)});$('tNote').value+=st?` • Stok ${st.name} +${p.quantity} pack`:' • Barang belum ditemukan di Stok';}$('modalTitle').textContent='Konfirmasi Input Suara';};
-  rec.onerror=e=>{if(e.error!=='aborted')appAlert('Input suara gagal. Pastikan izin mikrofon diberikan.','Input Suara');};
-  try{rec.start();}catch(e){appAlert('Mikrofon sedang digunakan. Coba lagi.','Input Suara');}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR)return appAlert('Fitur suara belum didukung browser ini. Gunakan Chrome di Android.','Input Suara');
+  try{activeVoiceRecognition?.abort();}catch(e){}
+  activeVoiceType=type;activeVoiceText='';
+  setVoiceCaptureState('listening');
+  const rec=new SR();activeVoiceRecognition=rec;rec.lang='id-ID';rec.interimResults=false;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{
+    const text=String(e.results?.[0]?.[0]?.transcript||'').trim();
+    activeVoiceText=text;
+    if(text)setVoiceCaptureState('heard',text);else setVoiceCaptureState('error','Tidak ada teks yang berhasil dikenali.');
+  };
+  rec.onerror=e=>{if(e.error==='aborted')return;setVoiceCaptureState('error',e.error==='not-allowed'?'Izin mikrofon ditolak. Izinkan mikrofon lalu coba lagi.':'Input suara gagal. Coba ulangi.');};
+  rec.onend=()=>{if($("voiceCaptureModal")?.classList.contains('show')&&!activeVoiceText&&$("voiceCaptureTitle")?.textContent==='Mendengarkan...')setVoiceCaptureState('error','Tidak ada suara yang terbaca. Coba bicara lagi.');};
+  try{rec.start();}catch(e){setVoiceCaptureState('error','Mikrofon sedang digunakan. Coba lagi.');}
 }
 
 function showExpensePhotoPreview(data){
