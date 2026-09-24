@@ -264,3 +264,8 @@ button:disabled{opacity:.45;cursor:not-allowed}
 #receiptModal .modalClose{border:0;background:#f1f3f5;border-radius:9px;width:34px;height:34px;font-weight:900}
 #receiptModal .receiptPhotoView{max-height:68vh;min-height:180px;overflow:auto;background:#f5f6f7;border-radius:12px;padding:8px}
 #receiptModal .receiptPhotoView img{display:block;max-width:100%;max-height:64vh;width:auto;height:auto;margin:auto;object-fit:contain}
+.voiceBtn{background:#263248;color:#fff;border:0;border-radius:10px;padding:12px 7px;font-weight:900;font-size:11px;min-height:44px}
+.receiveVoiceBtn{background:#2f6f45}.payVoiceBtn{background:#a52f2f}
+@media(min-width:700px){.kasInputActions{grid-template-columns:1fr 1fr 1fr 1fr}}
+.voiceBtn{background:#263248;color:#fff;border:0;border-radius:10px;padding:12px 7px;font-weight:900;font-size:11px;min-height:44px}
+.receiveVoiceBtn{background:#2f6f45}.payVoiceBtn{background:#a52f2f}

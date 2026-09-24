@@ -1,4 +1,5 @@
-const APP_VERSION="3.3.91";
+const APP_VERSION="3.4.0";
+let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
 const MODE_KEY="seblak_story_mode_v1";
@@ -457,6 +458,7 @@ function updateTxNameField(){
   }
 }
 function openTx(id=null, forcedType=null){
+  pendingVoiceStock=null;
   $("modal").classList.add("show");
   $("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";
   $("editId").value=id||"";
@@ -503,10 +505,56 @@ async function saveTx(){
   const date=$("tDate").value||localDT();
   const old=id?store.tx.find(a=>a.id==id):null;
   let photo=isIncome?"":(pendingExpensePhoto||old?.photo||"");
+  const voiceStock=pendingVoiceStock && !id ? {...pendingVoiceStock} : null;
   const x={id:id?Number(id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null};
   if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);
+  if(voiceStock?.item && voiceStock.quantity>0){
+    const needle=voiceStock.item.toLowerCase();
+    let st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle);
+    if(!st) st=stocks.find(a=>{const n=String(a.name||'').trim().toLowerCase();return n.includes(needle)||needle.includes(n)});
+    if(st){st.qty=(Number(st.qty)||0)+Number(voiceStock.quantity||0);if(Number(voiceStock.unitPrice)>0)st.lastBuyPrice=Number(voiceStock.unitPrice);localStorage.setItem(STOCK_KEY,JSON.stringify(stocks));}
+  }
+  pendingVoiceStock=null;
   persist(); closeModal(); refresh();
   if(document.getElementById("laporan")?.classList.contains("active")) renderReport();
+}
+
+
+function voiceNumberToValue(text){
+  const raw=String(text||'').toLowerCase().replace(/,/g,'.').trim(); if(!raw)return 0;
+  const numeric=Number(raw.replace(/[^0-9.]/g,'')); if(Number.isFinite(numeric)&&numeric>0)return numeric;
+  const ones={nol:0,satu:1,se:1,dua:2,tiga:3,empat:4,lima:5,enam:6,tujuh:7,delapan:8,sembilan:9,sepuluh:10,sebelas:11};
+  const words=raw.replace(/-/g,' ').split(/\s+/).filter(Boolean); let total=0,current=0;
+  for(let i=0;i<words.length;i++){const w=words[i];if(ones[w]!=null){current+=ones[w];continue;}if(ones[w]!=null&&words[i+1]==='puluh'){current+=ones[w]*10;i++;continue;}if(w==='puluh'){current=(current||1)*10;continue;}if(w==='belas'){current+=10;continue;}if(w==='ratus'){current=(current||1)*100;continue;}if(w==='ribu'){total+=(current||1)*1000;current=0;continue;}if(w==='juta'){total+=(current||1)*1000000;current=0;continue;}}
+  return total+current;
+}
+function parseVoiceMoney(text){
+  const s=String(text||'').toLowerCase();
+  const m=s.match(/(\d+(?:[.,]\d+)?)\s*(juta|jt|ribu|rb)/i); if(m)return Number(m[1].replace(',','.'))*(m[2].startsWith('j')?1000000:1000);
+  const wordMatch=s.match(/(?:sebesar|total|harga|bayar|terima)\s+([a-z -]+?)(?=\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\b|$)/i); if(wordMatch){const v=voiceNumberToValue(wordMatch[1]);if(v)return v;}
+  return voiceNumberToValue(s);
+}
+function parseVoiceTransaction(text,forcedType){
+  const s=String(text||'').trim().toLowerCase(), type=forcedType==='in'?'in':'out';
+  const payment=/\b(qris|transfer|non[- ]?tunai|nontunai|debit|kartu)\b/i.test(s)?'Non Tunai':'Tunai';
+  let quantity=0,unit='',unitPrice=0,amount=0;
+  const q=s.match(/(?:\b(\d+(?:[.,]\d+)?)\s*(pack|pak|pcs|buah|botol|kg|dus|lusin)\b)/i); if(q){quantity=Number(q[1].replace(',','.'));unit=q[2].toLowerCase().replace('pak','pack');}
+  const pp=s.match(/(?:harga|seharga|@)\s*(\d+(?:[.,]\d+)?)\s*(juta|jt|ribu|rb)?\s*(?:per|\/|tiap)\s*(?:pack|pak|pcs|buah|botol|kg|dus)?/i);
+  if(pp){unitPrice=Number(pp[1].replace(',','.'))*(pp[2]?(pp[2].startsWith('j')?1000000:1000):1);}
+  if(!unitPrice){const pp2=s.match(/(\d+(?:[.,]\d+)?)\s*(juta|jt|ribu|rb)\s*(?:per|\/|tiap)\s*(?:pack|pak|pcs|buah|botol|kg|dus)/i);if(pp2)unitPrice=Number(pp2[1].replace(',','.'))*(pp2[2].startsWith('j')?1000000:1000);}
+  if(quantity&&unitPrice)amount=quantity*unitPrice; if(!amount)amount=parseVoiceMoney(s);
+  let item='';
+  if(type==='out'){const m=s.match(/(?:beli|belanja|bayar|membeli|membayar)\s+(.+?)(?=\s+(?:\d+(?:[.,]\d+)?|satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)\s*(?:pack|pak|pcs|buah|botol|kg|dus)|\s+harga\b|\s+seharga\b|\s+total\b|\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\b|$)/i);item=(m?.[1]||'').trim();}
+  else {const m=s.match(/(?:terima|menerima|masuk|penjualan|pendapatan)\s+(.+?)(?=\s+(?:\d+(?:[.,]\d+)?|satu|dua|tiga|empat|lima|enam|tujuh|delapan|sembilan|sepuluh)\s*(?:juta|jt|ribu|rb)|\s+(?:tunai|cash|transfer|qris|non[- ]?tunai)\b|$)/i);item=(m?.[1]||'').trim();}
+  if(!item)item=type==='out'?'Pengeluaran':'Pemasukan';
+  return {type,amount,quantity,unit,unitPrice,item,paymentMethod:payment,raw:text};
+}
+function startVoiceTransaction(type){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition; if(!SR)return appAlert('Fitur suara belum didukung browser ini. Gunakan Chrome di Android.','Input Suara');
+  const rec=new SR();rec.lang='id-ID';rec.interimResults=false;rec.continuous=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{const text=e.results[0][0].transcript,p=parseVoiceTransaction(text,type);if(!p.amount)return appAlert(`Saya mendengar: “${text}”\n\nNominal belum terbaca. Coba ulangi dengan menyebutkan nominal.`,'Input Suara');openTx(null,type);if(type==='in'){$('tIncomeName').value=p.paymentMethod==='Non Tunai'?'Non Tunai':'Tunai';}else{$('tName').value=p.item;$('tExpensePayment').value=p.paymentMethod;}$('tAmount').value=Math.round(p.amount);$('tNote').value=`Input suara: ${text}`;if(type==='out'&&p.quantity&&p.unitPrice){pendingVoiceStock={item:p.item,quantity:p.quantity,unit:p.unit,unitPrice:p.unitPrice};const needle=p.item.toLowerCase();const st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle)||stocks.find(a=>{const n=String(a.name||'').trim().toLowerCase();return n.includes(needle)||needle.includes(n)});$('tNote').value+=st?` • Stok ${st.name} +${p.quantity} pack`:' • Barang belum ditemukan di Stok';}$('modalTitle').textContent='Konfirmasi Input Suara';};
+  rec.onerror=e=>{if(e.error!=='aborted')appAlert('Input suara gagal. Pastikan izin mikrofon diberikan.','Input Suara');};
+  try{rec.start();}catch(e){appAlert('Mikrofon sedang digunakan. Coba lagi.','Input Suara');}
 }
 
 function showExpensePhotoPreview(data){
