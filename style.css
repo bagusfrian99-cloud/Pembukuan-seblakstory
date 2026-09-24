@@ -164,7 +164,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .menuCard button#quickPrinterBtn.printerDisconnected b{background:#f3f4f6;color:#6b7280;}
 .menuCard button#quickPrinterBtn.isConnecting{opacity:.7;}
 
-/* v3.3.77 dashboard polish: compact 7-day nominal labels and smaller action buttons */
+/* v3.3.80 dashboard polish: compact 7-day nominal labels and smaller action buttons */
 .barLabels{height:18px;display:flex;align-items:flex-end;justify-content:center;gap:4px;white-space:nowrap;font-size:8px;font-weight:900;line-height:1}.barLabels span{min-width:18px;text-align:center}.inLabel{color:#15985b}.outLabel{color:#ef4444}.barDay small{display:flex;flex-direction:column;align-items:center;line-height:1.05}.barDay small em{font-style:normal;font-size:8px;margin-top:2px;color:#7a8495}.dashboardBuyActions{grid-template-columns:1fr 1fr 1fr;gap:7px;margin:9px 0}.dashboardBuyActions .dashboardBuyBtn{min-height:48px;padding:8px 5px;border-radius:11px;font-size:11px;color:#111!important;text-align:center;justify-content:center}.dashboardBuyActions .dashboardBuyBtn b{font-size:10px;color:#111!important}.dashboardBuyBtn.wa{grid-column:auto!important;background:#e8fff1!important;color:#111!important}.dashboardTelegramBtn{min-height:50px!important;padding:10px 8px!important;font-size:13px!important;color:#111!important}.dashboardTelegramBtn b{font-size:12px;color:#111!important}.dashboardBuyBtn:active,.dashboardTelegramBtn:active{transform:scale(.99)}
 
 /* v3.3.78: jumlah pembelian dapat disesuaikan langsung di modal Pilih Barang */
