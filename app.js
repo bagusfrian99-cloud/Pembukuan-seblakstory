@@ -1,4 +1,4 @@
-const APP_VERSION="3.3.83";
+const APP_VERSION="3.3.84";
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
 const MODE_KEY="seblak_story_mode_v1";
