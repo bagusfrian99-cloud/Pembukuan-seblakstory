@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.7";
+const APP_VERSION="3.4.8";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -577,7 +577,15 @@ function parseVoiceMoney(text){
   return 0;
 }
 function parseVoiceTransaction(text,forcedType){
-  const s=String(text||'').trim().toLowerCase(), type=forcedType==='in'?'in':'out';
+  const s=String(text||'').trim().toLowerCase();
+  let type=forcedType==='in'?'in':forcedType==='out'?'out':'';
+  if(!type){
+    const hasIn=/\b(terima|menerima|dapat|masuk|penjualan|pendapatan|pemasukan|uang masuk)\b/i.test(s);
+    const hasOut=/\b(beli|belanja|bayar|membeli|membayar|pengeluaran|uang keluar)\b/i.test(s);
+    if(hasIn && !hasOut) type='in';
+    else if(hasOut && !hasIn) type='out';
+    else return {type:'',amount:0,quantity:0,unit:'',unitPrice:0,item:'',paymentMethod:'Tunai',raw:text};
+  }
   const payment=/\b(qris|transfer|non[- ]?tunai|nontunai|debit|kartu)\b/i.test(s)?'Non Tunai':'Tunai';
   const unitPattern='pack|pak|pcs|piece|pieces|buah|botol|kg|dus|lusin|liter|sachet|bungkus';
   let quantity=0,unit='',unitPrice=0,amount=0;
@@ -624,12 +632,14 @@ function setVoiceCaptureState(state,text=''){
 }
 function closeVoiceCapture(){$("voiceCaptureModal")?.classList.remove('show');activeVoiceRecognition=null;activeVoiceType=null;activeVoiceText='';}
 function cancelVoiceCapture(){try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();}
-function retryVoiceCapture(){const t=activeVoiceType||'out';try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();setTimeout(()=>startVoiceTransaction(t),80);}
+function retryVoiceCapture(){const t=activeVoiceType||'auto';try{activeVoiceRecognition?.abort();}catch(e){}closeVoiceCapture();setTimeout(()=>startVoiceTransaction(t),80);}
 function processVoiceCapture(){
-  const text=String(activeVoiceText||'').trim(), type=activeVoiceType==='in'?'in':'out';
+  const text=String(activeVoiceText||'').trim();
   if(!text){setVoiceCaptureState('error','Tidak ada hasil suara.');return;}
   try{
-    const parsed=parseVoiceTransaction(text,type);
+    const parsed=parseVoiceTransaction(text,activeVoiceType);
+    if(!parsed.type){setVoiceCaptureState('error','Jenis transaksi belum jelas. Ucapkan “terima/penjualan” atau “beli/bayar”.');return;}
+    const type=parsed.type;
     // Jika hasil speech hanya berupa nominal (contoh: 25.000), gunakan langsung sebagai jumlah.
     if(!parsed.amount){
       const fallback=voiceNumberToValue(text);
@@ -668,6 +678,33 @@ function processVoiceCapture(){
   }
 }
 window.processVoiceCapture=processVoiceCapture;
+let kasInputChoiceType=null;
+function openKasInputChoice(type){
+  kasInputChoiceType=type==='in'?'in':'out';
+  const title=$("kasInputChoiceTitle");
+  if(title) title.textContent=kasInputChoiceType==='in'?'Kamu Menerima':'Kamu Membayar';
+  $("kasInputChoiceModal")?.classList.add('show');
+}
+function closeKasInputChoice(){
+  $("kasInputChoiceModal")?.classList.remove('show');
+  kasInputChoiceType=null;
+}
+function chooseKasManual(){
+  const type=kasInputChoiceType||'out';
+  closeKasInputChoice();
+  openTx(null,type);
+}
+function chooseKasVoice(){
+  const type=kasInputChoiceType||'out';
+  closeKasInputChoice();
+  setTimeout(()=>startVoiceTransaction(type),80);
+}
+window.openKasInputChoice=openKasInputChoice;
+window.closeKasInputChoice=closeKasInputChoice;
+window.chooseKasManual=chooseKasManual;
+window.chooseKasVoice=chooseKasVoice;
+function chooseKasManualDirect(type){openTx(null,type==='in'?'in':'out');}
+window.chooseKasManualDirect=chooseKasManualDirect;
 function startVoiceTransaction(type){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!SR)return appAlert('Fitur suara belum didukung browser ini. Gunakan Chrome di Android.','Input Suara');
