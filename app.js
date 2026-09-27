@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.6";
+const APP_VERSION="3.4.7";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -758,24 +758,41 @@ function openTransfer(){
 }
 function closeTransfer(){ $("transferModal")?.classList.remove("show"); }
 function saveTransfer(){
-  const n=Number(String($("transferAmount")?.value||"").replace(/[^0-9]/g,""));
-  if(n<=0)return appAlert("Jumlah transfer harus lebih dari 0.","Transfer Antar Akun");
-  const dir=$("transferDirection")?.value;
-  const detail=String($("transferNote")?.value||"").trim();
-  const baseNote=dir==="usaha_to_rumah"?"Transfer dari kas usaha ke rumah":"Transfer dari rumah ke usaha";
-  const note=detail?`${baseNote} • ${detail}`:baseNote;
-  const targetKey=dir==="usaha_to_rumah"?HOME_KEY:KEY;
-  const target=(()=>{try{return JSON.parse(localStorage.getItem(targetKey)||"null")||{tx:[]}}catch(e){return {tx:[]}}})();
-  const id=Date.now();
-  if(appMode==="usaha" && dir==="usaha_to_rumah"){
-    store.tx.push({id,type:"out",date:now,name:"Transfer ke Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-    target.tx.push({id:id+1,type:"in",date:now,name:"Transfer dari Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-  }else if(appMode==="rumah" && dir==="rumah_to_usaha"){
-    store.tx.push({id,type:"out",date:now,name:"Transfer ke Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-    target.tx.push({id:id+1,type:"in",date:now,name:"Transfer dari Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-  }else{return appAlert("Arah transfer tidak sesuai dengan mode yang sedang dibuka.","Transfer Antar Akun");}
-  persistModeStore(); localStorage.setItem(targetKey,JSON.stringify(target)); closeTransfer(); refresh();
-  appAlert(`Transfer ${money(n)} berhasil dicatat di kedua pembukuan.`,"Transfer Antar Akun");
+  try{
+    const amountEl=$("transferAmount");
+    const dirEl=$("transferDirection");
+    const noteEl=$("transferNote");
+    const n=Number(String(amountEl?.value||"").replace(/[^0-9]/g,""));
+    if(!Number.isFinite(n)||n<=0){appAlert("Jumlah transfer harus lebih dari 0.","Transfer Antar Akun");return false;}
+    const dir=String(dirEl?.value||"");
+    const detail=String(noteEl?.value||"").trim();
+    const allowed=(appMode==="usaha"&&dir==="usaha_to_rumah")||(appMode==="rumah"&&dir==="rumah_to_usaha");
+    if(!allowed){appAlert("Arah transfer tidak sesuai dengan mode yang sedang dibuka.","Transfer Antar Akun");return false;}
+    const baseNote=dir==="usaha_to_rumah"?"Transfer dari kas usaha ke rumah":"Transfer dari kas rumah ke usaha";
+    const note=detail?`${baseNote} • ${detail}`:baseNote;
+    const targetKey=dir==="usaha_to_rumah"?HOME_KEY:KEY;
+    let target={tx:[]};
+    try{const raw=localStorage.getItem(targetKey);const parsed=raw?JSON.parse(raw):null;if(parsed&&Array.isArray(parsed.tx))target=parsed;}catch(e){}
+    const id=Date.now();
+    const nowDate=localDT();
+    if(appMode==="usaha"){
+      store.tx.push({id,type:"out",date:nowDate,name:"Transfer ke Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+      target.tx.push({id:id+1,type:"in",date:nowDate,name:"Transfer dari Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+    }else{
+      store.tx.push({id,type:"out",date:nowDate,name:"Transfer ke Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+      target.tx.push({id:id+1,type:"in",date:nowDate,name:"Transfer dari Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+    }
+    persistModeStore();
+    localStorage.setItem(targetKey,JSON.stringify(target));
+    closeTransfer();
+    refresh();
+    appAlert(`Transfer ${money(n)} berhasil dicatat di kedua pembukuan.`,"Transfer Antar Akun");
+    return true;
+  }catch(e){
+    console.error("saveTransfer error",e);
+    appAlert("Transfer gagal disimpan. Data tidak diubah. Coba lagi.","Transfer Antar Akun");
+    return false;
+  }
 }
 
 function renderDashboard(){

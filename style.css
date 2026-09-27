@@ -282,3 +282,7 @@ button:disabled{opacity:.45;cursor:not-allowed}
 .voiceTranscript.hasText{color:#263248;font-weight:700}
 .voiceCaptureBox .actions{display:flex;gap:8px}
 .voiceCaptureBox .actions button{flex:1;min-height:44px}
+
+#transferModal{z-index:1300}
+#transferModal .actions{position:relative;z-index:1301}
+#saveTransferBtn{position:relative;z-index:1302;pointer-events:auto}
