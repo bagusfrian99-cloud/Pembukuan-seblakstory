@@ -291,6 +291,6 @@ button:disabled{opacity:.45;cursor:not-allowed}
 
 /* v3.4.9: tombol input suara universal dibuat kecil, ikon mic saja */
 .kasInputActions{display:none!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 52px!important;gap:8px!important;align-items:stretch}
-.kasPageActive #kasFixedActions{display:grid!important}.kasInputActions .kasMicBtn{width:52px!important;min-width:52px!important;padding:0!important;min-height:48px;border:0;border-radius:12px;background:#263248;color:#fff;font-size:23px;display:grid;place-items:center;cursor:pointer;box-shadow:none}
+body.kasPageActive #kasFixedActions{display:grid!important}.kasInputActions .kasMicBtn{width:52px!important;min-width:52px!important;padding:0!important;min-height:48px;border:0;border-radius:12px;background:#263248;color:#fff;font-size:23px;display:grid;place-items:center;cursor:pointer;box-shadow:none}
 .kasInputActions .kasMicBtn:active{transform:scale(.97)}
 @media(max-width:380px){.kasInputActions{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px!important}.kasInputActions .kasMicBtn{width:48px!important;min-width:48px;font-size:21px}}

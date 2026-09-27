@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.10";
+const APP_VERSION="3.4.11";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -397,7 +397,7 @@ function showPage(id,btn){
     document.documentElement.style.setProperty('--kas-header-h', `${Math.ceil(h)}px`);
   }
   const kasActions=$('kasFixedActions');
-  if(kasActions)kasActions.setAttribute('aria-hidden', id==='transaksi'?'false':'true');
+  if(kasActions){const isKas=id==='transaksi';kasActions.setAttribute('aria-hidden',isKas?'false':'true');kasActions.style.setProperty('display',isKas?'grid':'none','important');}
   document.querySelectorAll('[data-page]').forEach(x=>x.classList.remove('active'));
   document.querySelectorAll(`[data-page="${id}"]`).forEach(x=>x.classList.add('active'));
   if(btn&&btn.dataset)btn.classList.add('active');
@@ -425,7 +425,7 @@ function closeAnyOpenModal(){
   return closed;
 }
 function initBackNavigation(){
-  document.body.classList.toggle('kasPageActive', (location.hash.replace(/^#/,'')||'dashboard')==='transaksi');
+  const initialIsKas=(location.hash.replace(/^#/,'')||'dashboard')==='transaksi';document.body.classList.toggle('kasPageActive',initialIsKas);const initialKasActions=$('kasFixedActions');if(initialKasActions)initialKasActions.style.setProperty('display',initialIsKas?'grid':'none','important');
   const initial=location.hash.replace(/^#/,'')||'dashboard';
   history.replaceState({page:initial,root:true},'',window.location.href.split('#')[0]+'#'+initial);
   if(initial!=='dashboard')showPage(initial,document.querySelector(`[data-page="${initial}"]`));
