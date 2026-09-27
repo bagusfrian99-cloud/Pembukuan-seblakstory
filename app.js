@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.8";
+const APP_VERSION="3.4.10";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
