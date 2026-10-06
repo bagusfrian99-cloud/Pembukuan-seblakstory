@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.11";
+const APP_VERSION="3.4.12";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -1294,12 +1294,16 @@ async function telegramApi(token,method,body){
   let data; try{data=await res.json()}catch(e){throw new Error("Telegram tidak mengembalikan JSON. Periksa koneksi atau izin jaringan browser.")}
   if(!res.ok||!data.ok)throw new Error(data?.description||`Telegram API gagal (${res.status})`); return data.result;
 }
-function telegramMessageText(m){return m?.text||m?.caption||m?.message?.text||m?.message?.caption||m?.channel_post?.text||m?.channel_post?.caption||""}
+function telegramMessageText(m){return m?.text||m?.caption||m?.message?.text||m?.message?.caption||m?.edited_message?.text||m?.edited_message?.caption||m?.channel_post?.text||m?.channel_post?.caption||m?.edited_channel_post?.text||m?.edited_channel_post?.caption||""}
 function telegramMessageInfo(m){
-  const x=m?.message||m?.channel_post||m; return {id:x?.message_id||m?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(m)}
+  const x=m?.message||m?.edited_message||m?.channel_post||m?.edited_channel_post||m; return {id:x?.message_id||m?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(m),chatType:x?.chat?.type||"",forwarded:!!(x?.forward_origin||x?.forward_from||x?.forward_from_chat)}
 }
 function parseTelegramShift(text){
-  if(!text||!/LAPORAN\s+SHIFT/i.test(text))return null;
+  if(!text)return null;
+  // Pesan langsung ke bot tidak wajib memiliki judul LAPORAN SHIFT.
+  const hasHeader=/LAPORAN\s+SHIFT/i.test(text);
+  const hasFields=/(?:Tanggal|Shift)\s*:/i.test(text) && /(?:Penjualan|Cash|Tunai|Nontunai|Non\s*Tunai|Pengeluaran)\s*:/i.test(text);
+  if(!hasHeader&&!hasFields)return null;
   const val=(re)=>{const m=text.match(re);return m?m[1].trim():null};
   const date=val(/Tanggal\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i); const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
   const cashier=val(/Kasir\s*:\s*([^\r\n]+)/i); const time=val(/Waktu\s*:\s*(\d{1,2}[:.]\d{2})/i);
@@ -1311,9 +1315,9 @@ function parseTelegramShift(text){
     return m?Number(m[1].replace(/\./g,""))||0:0;
   };
   const transactions=0; const sales=num(val(/Penjualan\s*:\s*([^\r\n]+)/i));
-  const cash=num(val(/Cash\s*:\s*([^\r\n]+)/i));
+  const cash=num(val(/(?:Cash|Tunai)\s*:\s*([^\r\n]+)/i));
   // Hanya baca nominal Nontunai. Angka jumlah transaksi dalam kurung diabaikan.
-  const nonCashMatch=text.match(/Nontunai\s*:\s*Rp\s*([0-9][0-9.]*)/i);
+  const nonCashMatch=text.match(/(?:Nontunai|Non\s*Tunai)\s*:\s*(?:Rp\s*)?([0-9][0-9.]*)/i);
   const nonCash=nonCashMatch?Number(nonCashMatch[1].replace(/\./g,""))||0:0;
   const expense=num(val(/Pengeluaran\s*:\s*([^\r\n]+)/i)); const balance=num(val(/Saldo\s*:\s*([^\r\n]+)/i));
   if(!date||!shift||(!cash&&!nonCash&&!sales))return null;
@@ -1342,12 +1346,13 @@ async function checkTelegramNow(showMessage=true){
     const tg=readTelegramSettings(); if(!tg.token)throw new Error("Token Telegram Bot belum diisi.");
     await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
     const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post"]});
-    const items=[]; let ignored=0,maxOffset=tg.offset||0;
+    const items=[]; let ignored=0,maxOffset=tg.offset||0,directSeen=0,directAccepted=0;
     const seen=new Set();
     const pendingKeys=new Set();
     for(const u of updates){
       maxOffset=Math.max(maxOffset,(u.update_id||0)+1);
       const info=telegramMessageInfo(u);
+      if(info.chatType==="private")directSeen++;
       if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;
       const parsed=parseTelegramShift(info.text);
       if(!parsed){ignored++;continue}
@@ -1361,12 +1366,12 @@ async function checkTelegramNow(showMessage=true){
       const existingExp=rows.find(x=>x.sourceId===`${key}-EXP`);
       const mismatch=Number(existingCash?.amount||0)!==parsed.cash || Number(existingNon?.amount||0)!==parsed.nonCash || Number(existingExp?.amount||0)!==parsed.expense;
       if(rows.length && !mismatch)continue;
-      seen.add(key);pendingKeys.add(key);items.push({updateId:u.update_id,sourceMessageId:info.id,parsed});
+      seen.add(key);pendingKeys.add(key);if(info.chatType==="private")directAccepted++;items.push({updateId:u.update_id,sourceMessageId:info.id,parsed,sourceType:info.chatType||"unknown",forwarded:info.forwarded,chatId:info.chatId});
     }
-    const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID")};
-    saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan`});
-    renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • belum diterapkan`;
-    if(showMessage)appAlert(`Pengecekan Telegram selesai.\n\nLaporan siap diperiksa: ${items.length}\nDiabaikan: ${ignored}\n\nData belum masuk Buku Kas. Tekan Terapkan ke Pembukuan jika sudah sesuai.`,"Cek Telegram");
+    const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID"),directSeen,directAccepted};
+    saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan • Pesan langsung: ${directAccepted}/${directSeen}`});
+    renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • pesan langsung ${directAccepted}/${directSeen}`;
+    if(showMessage)appAlert(`Pengecekan Telegram selesai.\n\nLaporan siap diperiksa: ${items.length}\nPesan langsung dari bot: ${directAccepted}/${directSeen}\nDiabaikan: ${ignored}\n\nData belum masuk Buku Kas. Tekan Terapkan ke Pembukuan jika sudah sesuai.`,"Cek Telegram");
   }catch(e){const tg=readTelegramSettings();const msg=e?.message||"Cek Telegram gagal.";saveTelegramSettingsLocal({...tg,lastStatus:"Gagal: "+msg});if($("tgStatus"))$("tgStatus").textContent="Gagal: "+msg;if(showMessage)appAlert(msg,"Cek Telegram gagal");}
   finally{telegramBusy=false}
 }
