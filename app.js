@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.12";
+const APP_VERSION="3.4.14";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -500,14 +500,25 @@ async function saveTx(){
   const isIncome=$("tType").value==="in";
   let name=appMode==="rumah" ? $("tName").value.trim() : (isIncome ? $("tIncomeName").value : $("tName").value.trim());
   const paymentMethod=isIncome ? name : ($("tExpensePayment").value||"Tunai");
-  let amount=Number($("tAmount").value),id=$("editId").value;
-  if(!name||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
+  const amount=Number($("tAmount").value);
+  const id=String($("editId").value||"").trim();
+  if(!name||!Number.isFinite(amount)||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
   const date=$("tDate").value||localDT();
-  const old=id?store.tx.find(a=>a.id==id):null;
-  let photo=isIncome?"":(pendingExpensePhoto||old?.photo||"");
+  // Cari dengan ID string utuh. ID impor Telegram sengaja berbentuk teks dan tidak boleh dikonversi ke angka.
+  let oldIndex=-1, old=null;
+  if(id){
+    oldIndex=store.tx.findIndex(a=>String(a?.id??"")===id);
+    if(oldIndex<0) oldIndex=store.tx.findIndex(a=>String(a?.sourceId??"")===id);
+    if(oldIndex>=0) old=store.tx[oldIndex];
+    if(!old){
+      console.error("Edit transaksi gagal: ID tidak ditemukan",id);
+      return appAlert("Transaksi yang mau diedit tidak ditemukan di data aktif. Perubahan belum disimpan. Tutup form lalu buka Edit sekali lagi.","Transaksi tidak ditemukan");
+    }
+  }
+  const photo=isIncome?"":(pendingExpensePhoto||old?.photo||"");
   const voiceStock=pendingVoiceStock && !id ? {...pendingVoiceStock} : null;
-  const x={id:id?(old?.id??id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null,edited:old?.source==="TELEGRAM_SHIFT"?true:(old?.edited||false)};
-  if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);
+  const x={...(old||{}),id:old?(old.id??id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null,edited:old?.source==="TELEGRAM_SHIFT"?true:(old?.edited||false)};
+  if(oldIndex>=0){store.tx[oldIndex]=x;}else{store.tx.push(x);}
   if(voiceStock?.item && voiceStock.quantity>0){
     const needle=voiceStock.item.toLowerCase();
     let st=stocks.find(a=>String(a.name||'').trim().toLowerCase()===needle);
@@ -515,8 +526,12 @@ async function saveTx(){
     if(st){st.qty=(Number(st.qty)||0)+Number(voiceStock.quantity||0);if(Number(voiceStock.unitPrice)>0)st.lastBuyPrice=Number(voiceStock.unitPrice);localStorage.setItem(STOCK_KEY,JSON.stringify(stocks));}
   }
   pendingVoiceStock=null;
-  persist(); closeModal(); refresh();
-  if(document.getElementById("laporan")?.classList.contains("active")) renderReport();
+  persist(); closeModal();
+  // Render Buku Kas immediately so the saved amount is visible without changing pages.
+  renderTransactions(); renderDashboard();
+  if(document.getElementById("stok")?.classList.contains("active"))renderStock();
+  if(document.getElementById("laporan")?.classList.contains("active"))renderReport();
+  appAlert(id?"Perubahan transaksi berhasil disimpan.":"Transaksi berhasil disimpan.","Tersimpan");
 }
 
 
