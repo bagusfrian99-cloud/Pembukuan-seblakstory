@@ -506,7 +506,7 @@ async function saveTx(){
   const old=id?store.tx.find(a=>a.id==id):null;
   let photo=isIncome?"":(pendingExpensePhoto||old?.photo||"");
   const voiceStock=pendingVoiceStock && !id ? {...pendingVoiceStock} : null;
-  const x={id:id?Number(id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null};
+  const x={id:id?(old?.id??id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null,edited:old?.source==="TELEGRAM_SHIFT"?true:(old?.edited||false)};
   if(id)store.tx=store.tx.map(a=>a.id==id?x:a);else store.tx.push(x);
   if(voiceStock?.item && voiceStock.quantity>0){
     const needle=voiceStock.item.toLowerCase();
@@ -895,7 +895,7 @@ function openReceiptPhoto(data){const m=$("receiptModal"),v=$("receiptPhotoView"
 function openReceiptPhotoById(id){const x=store.tx.find(a=>String(a.id)===String(id));if(!x||x.type!=="out"||!x.photo)return appAlert("Foto struk tidak tersedia pada transaksi ini.","Foto Struk");openReceiptPhoto(String(x.photo))}
 function closeReceiptPhoto(){$("receiptModal")?.classList.remove('show')}
 
-function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){store.tx=store.tx.filter(x=>x.id!=id);persist();refresh()}})}
+function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){const target=store.tx.find(x=>String(x.id)===String(id));if(target?.source==="TELEGRAM_SHIFT"&&target.sourceId){const deleted=telegramDeletedIds();deleted.add(String(target.sourceId));saveTelegramDeletedIds(deleted)}store.tx=store.tx.filter(x=>String(x.id)!==String(id));persist();refresh()}})}
 function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
 function closeStock(){$("stockModal").classList.remove("show")}
 function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),pack=Number($("sPack").value)||1,min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return appAlert("Lengkapi nama, isi/pack, minimum pack, dan stok pack.","Data belum lengkap");let old=id?stocks.find(a=>a.id==id):null;let initialQty=old?.initialQty??qty;let x={id:id?Number(id):Date.now(),name,unit:"pack",stockUnit:"pack",pack,min,qty,initialQty,lastSO:old?.lastSO??qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
@@ -1324,13 +1324,17 @@ function parseTelegramShift(text){
   const [d,mo,y]=date.split('/'); return {day:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
 }
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
+const TG_DELETED_KEY="seblak_story_telegram_deleted_v1";
+function telegramDeletedIds(){try{const a=JSON.parse(localStorage.getItem(TG_DELETED_KEY)||"[]");return new Set(Array.isArray(a)?a.map(String):[])}catch(e){return new Set()}}
+function saveTelegramDeletedIds(ids){localStorage.setItem(TG_DELETED_KEY,JSON.stringify([...ids]))}
 function applyTelegramShift(p,sourceMessageId){
   const sid=telegramSourceId(p), stamp=`${p.day}T${p.time||"00:00"}`; const rows=[];
   if(p.cash>0)rows.push({type:"in",name:"Tunai",amount:p.cash,paymentMethod:"Tunai",note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-CASH`,cash:p.cash,nonCash:0});
   if(p.nonCash>0)rows.push({type:"in",name:"Non Tunai",amount:p.nonCash,paymentMethod:"Non Tunai",note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-NONCASH`,cash:0,nonCash:p.nonCash});
   if(p.expense>0)rows.push({type:"out",name:`Pengeluaran Shift ${p.shift}`,amount:p.expense,note:`Telegram • Shift ${p.shift}${p.cashier?` • Kasir ${p.cashier}`:""}`,sourceId:`${sid}-EXP`,cash:0,nonCash:0,paymentMethod:"Tunai"});
   let created=0,updated=0;
-  for(const r of rows){const existing=store.tx.find(x=>x.sourceId===r.sourceId);const rec={id:existing?.id||r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,paymentMethod:r.paymentMethod||txPaymentMethod(r),note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift}; if(existing)Object.assign(existing,rec),updated++;else store.tx.push(rec),created++}
+  const deleted=telegramDeletedIds();
+  for(const r of rows){if(deleted.has(String(r.sourceId)))continue;const existing=store.tx.find(x=>String(x.sourceId)===String(r.sourceId));const rec={id:existing?.id??r.sourceId,source:"TELEGRAM_SHIFT",sourceId:r.sourceId,type:r.type,date:stamp,name:r.name,amount:r.amount,paymentMethod:r.paymentMethod||txPaymentMethod(r),note:r.note,cash:r.cash,nonCash:r.nonCash,telegramMessageId:sourceMessageId||null,shiftId:p.shift,edited:existing?.edited||false}; if(existing){if(!existing.edited)Object.assign(existing,rec);updated++}else{store.tx.push(rec);created++}}
   return {created,updated};
 }
 function renderTelegramPreview(pending){
