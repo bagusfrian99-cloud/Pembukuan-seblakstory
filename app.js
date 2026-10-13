@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.19";
+const APP_VERSION="3.4.20";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -883,7 +883,7 @@ function renderDashboard(){
   const days=[];
   for(let dt=parseDay(rangeStart);dt<=parseDay(rangeEnd);dt.setDate(dt.getDate()+1)){
     const key=`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`;
-    days.push({key,label:String(dt.getDate()),value:0});
+    days.push({key,label:String(dt.getDate()),month:dt.toLocaleDateString('id-ID',{month:'short'}),value:0});
   }
   const ordered=(Array.isArray(store.tx)?store.tx:[]).filter(t=>txDay(t)).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
   let running=0;
@@ -915,9 +915,15 @@ function renderDashboard(){
   const points=days.map((d,i)=>`${x(i)},${y(d.value)}`).join(' ');
   svg+=`<polyline points="${points}" fill="none" stroke="#2f8bd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
   // Tampilkan setiap tanggal tanpa loncat; area grafik bisa digeser horizontal.
-  days.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-5}" text-anchor="middle" class="lineDay">${day.label}</text>`;});
+  days.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" class="lineDay">${day.label}</text><text x="${x(i)}" y="${H-2}" text-anchor="middle" class="lineMonth">${day.month}</text>`;});
   svg+='</svg>';
   chart.innerHTML=svg;
+  const dataBox=$('dailyBalanceDetails');
+  if(dataBox){
+    let cash=0,nonCash=0;
+    for(const t of ordered){if(txDay(t)>=rangeStart)break;const a=Math.abs(Number(t.amount)||0),sgn=t.type==='out'?-1:(t.type==='in'?1:0);if(txPaymentMethod(t)==='Non Tunai')nonCash+=a*sgn;else cash+=a*sgn;}
+    dataBox.innerHTML=days.map(day=>{const txs=ordered.filter(t=>txDay(t)===day.key);let income=0,expense=0;for(const t of txs){const a=Math.abs(Number(t.amount)||0);if(t.type==='in')income+=a;else if(t.type==='out')expense+=a;const sgn=t.type==='out'?-1:(t.type==='in'?1:0);if(txPaymentMethod(t)==='Non Tunai')nonCash+=a*sgn;else cash+=a*sgn;}return `<div class="dailyBalanceItem"><b>${day.label} ${day.month}</b><span>Total saldo<strong>${money(cash+nonCash)}</strong></span><span>Saldo tunai<strong>${money(cash)}</strong></span><span>Saldo non tunai<strong>${money(nonCash)}</strong></span><span class="dailyIn">Pemasukan<strong>${money(income)}</strong></span><span class="dailyOut">Pengeluaran<strong>${money(expense)}</strong></span></div>`;}).join('');
+  }
 }
 
 function renderTransactions(){

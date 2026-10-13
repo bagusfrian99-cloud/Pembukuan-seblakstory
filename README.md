@@ -10,3 +10,6 @@ v3.4.1: perbaikan parser nominal bertitik/koma, unit Piece/Pak, dan ekstraksi na
 
 
 Versi 3.4.18: grafik dashboard diubah menjadi grafik garis saldo harian dari 18 Agustus tahun berjalan sampai tanggal hari ini; label bawah hanya angka tanggal kecil dan rentang otomatis mengikuti tanggal perangkat. Versi tampilan menu Lainnya juga dinaikkan ke 3.4.18.
+
+
+Versi 3.4.20: label bulan ditampilkan di bawah setiap angka tanggal pada grafik dashboard. Ditambahkan rincian harian yang dapat digeser horizontal berisi saldo total, saldo tunai, saldo non tunai, pemasukan, dan pengeluaran.
