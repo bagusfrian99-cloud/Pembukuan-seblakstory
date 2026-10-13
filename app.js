@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.14";
+const APP_VERSION="3.4.15";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -457,11 +457,22 @@ function updateTxNameField(){
     $("tName").placeholder="Contoh: Beli bahan";
   }
 }
+function txEditKey(x){
+  // Telegram imports from older builds may have a null/NaN ID after numeric coercion.
+  // sourceId is stable and is the fallback identity for editing/deleting those records.
+  const raw=x?.id;
+  if(raw!==undefined && raw!==null && String(raw)!=="NaN" && String(raw)!=="null" && String(raw)!=="") return String(raw);
+  return String(x?.sourceId||"");
+}
+function findTxByEditKey(id){
+  const key=String(id??"");
+  return store.tx.find(a=>String(a?.id??"")===key || String(a?.sourceId??"")===key || txEditKey(a)===key);
+}
 function openTx(id=null, forcedType=null){
   pendingVoiceStock=null;
   $("modal").classList.add("show");
   $("modalTitle").textContent=id?"Edit Transaksi":"Tambah Transaksi";
-  $("editId").value=id||"";
+  $("editId").value=id==null?"":String(id);
   $("tDate").value=localDT();
   $("tIncomeName").value="Tunai";
   $("tName").value="";
@@ -474,7 +485,7 @@ function openTx(id=null, forcedType=null){
   $("tExpensePayment").value="Tunai";
   $("tType").value=forcedType||"in";
   if(id){
-    let x=store.tx.find(a=>a.id==id);
+    let x=findTxByEditKey(id);
     if(x){
       $("tType").value=x.type;
       $("tDate").value=x.date;
@@ -507,8 +518,7 @@ async function saveTx(){
   // Cari dengan ID string utuh. ID impor Telegram sengaja berbentuk teks dan tidak boleh dikonversi ke angka.
   let oldIndex=-1, old=null;
   if(id){
-    oldIndex=store.tx.findIndex(a=>String(a?.id??"")===id);
-    if(oldIndex<0) oldIndex=store.tx.findIndex(a=>String(a?.sourceId??"")===id);
+    oldIndex=store.tx.findIndex(a=>String(a?.id??"")===id || String(a?.sourceId??"")===id || txEditKey(a)===id);
     if(oldIndex>=0) old=store.tx[oldIndex];
     if(!old){
       console.error("Edit transaksi gagal: ID tidak ditemukan",id);
@@ -517,7 +527,9 @@ async function saveTx(){
   }
   const photo=isIncome?"":(pendingExpensePhoto||old?.photo||"");
   const voiceStock=pendingVoiceStock && !id ? {...pendingVoiceStock} : null;
-  const x={...(old||{}),id:old?(old.id??id):Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||"MANUAL",sourceId:old?.sourceId||null,edited:old?.source==="TELEGRAM_SHIFT"?true:(old?.edited||false)};
+  const isTelegram=old?.source==="TELEGRAM_SHIFT" || String(old?.sourceId||"").startsWith("TG-SHIFT-") || String(id).startsWith("TG-SHIFT-");
+  const stableId=old && old.id!==undefined && old.id!==null && String(old.id)!=="NaN" && String(old.id)!=="null" && String(old.id)!=="" ? old.id : (old?.sourceId||id);
+  const x={...(old||{}),id:old?stableId:Date.now(),type:$("tType").value,date,name,amount,paymentMethod,note:$("tNote").value.trim(),photo,source:old?.source||(isTelegram?"TELEGRAM_SHIFT":"MANUAL"),sourceId:old?.sourceId||(isTelegram?id:null),edited:isTelegram?true:(old?.edited||false)};
   if(oldIndex>=0){store.tx[oldIndex]=x;}else{store.tx.push(x);}
   if(voiceStock?.item && voiceStock.quantity>0){
     const needle=voiceStock.item.toLowerCase();
@@ -901,7 +913,7 @@ function renderTransactions(){
     const rows=groups[day];
     const dayIn=sum(rows,'in'), dayOut=sum(rows,'out');
     const label=new Date(day+'T00:00:00').toLocaleDateString('id-ID',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
-    const items=rows.map(x=>{const xid=esc(String(x.id));return `<div class="txWrap"><div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div>${x.type==='out'&&x.photo?`<button type="button" class="receiptBtn" data-tx-id="${xid}" aria-label="Lihat struk" onclick="event.preventDefault();event.stopPropagation();openReceiptPhotoById(this.dataset.txId)">▣</button>`:''}<button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button>${x.type==='out'&&x.photo?`<button type="button" class="txPhotoBtn" data-tx-id="${xid}" onclick="event.preventDefault();event.stopPropagation();openReceiptPhotoById(this.dataset.txId)">▣ Lihat Foto</button>`:''}<button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div></div>`}).join('');
+    const items=rows.map(x=>{const xid=esc(txEditKey(x));return `<div class="txWrap"><div class="txCard ${x.type==='in'?'incomeCard':'expenseCard'}"><div class="txIcon">${x.type==='in'?'↑':'↓'}</div><div class="txMain"><b>${esc(x.name)}</b><small>${esc(String(x.date||'').replace('T',' '))}${x.note?` • ${esc(x.note)}`:''}</small></div><div class="txAmount ${x.type==='in'?'green':'red'}">${x.type==='in'?'+':'-'}${money(x.amount)}<span>${txPaymentMethod(x)}</span></div>${x.type==='out'&&x.photo?`<button type="button" class="receiptBtn" data-tx-id="${xid}" aria-label="Lihat struk" onclick="event.preventDefault();event.stopPropagation();openReceiptPhotoById(this.dataset.txId)">▣</button>`:''}<button type="button" class="moreBtn txActionBtn" data-tx-id="${xid}" aria-label="Aksi transaksi">⋮</button></div><div class="inlineTxActions" hidden><button type="button" class="txEditBtn" data-tx-id="${xid}">✎ Edit</button>${x.type==='out'&&x.photo?`<button type="button" class="txPhotoBtn" data-tx-id="${xid}" onclick="event.preventDefault();event.stopPropagation();openReceiptPhotoById(this.dataset.txId)">▣ Lihat Foto</button>`:''}<button type="button" class="danger txDeleteBtn" data-tx-id="${xid}">🗑 Hapus</button></div></div>`}).join('');
     return `<div class="txDateGroup"><div class="txDateHead"><b>${label}</b><span><em class="green">+${money(dayIn)}</em> <em class="red">-${money(dayOut)}</em></span></div>${items}</div>`;
   }).join('')||'<div class="empty kasEmpty">Belum ada transaksi pada periode ini.</div>';
 }
@@ -910,7 +922,7 @@ function openReceiptPhoto(data){const m=$("receiptModal"),v=$("receiptPhotoView"
 function openReceiptPhotoById(id){const x=store.tx.find(a=>String(a.id)===String(id));if(!x||x.type!=="out"||!x.photo)return appAlert("Foto struk tidak tersedia pada transaksi ini.","Foto Struk");openReceiptPhoto(String(x.photo))}
 function closeReceiptPhoto(){$("receiptModal")?.classList.remove('show')}
 
-function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){const target=store.tx.find(x=>String(x.id)===String(id));if(target?.source==="TELEGRAM_SHIFT"&&target.sourceId){const deleted=telegramDeletedIds();deleted.add(String(target.sourceId));saveTelegramDeletedIds(deleted)}store.tx=store.tx.filter(x=>String(x.id)!==String(id));persist();refresh()}})}
+function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){const target=findTxByEditKey(id);if(target?.sourceId && (target.source==="TELEGRAM_SHIFT" || String(target.sourceId).startsWith("TG-SHIFT-"))){const deleted=telegramDeletedIds();deleted.add(String(target.sourceId));saveTelegramDeletedIds(deleted)}store.tx=store.tx.filter(x=>x!==target);persist();refresh()}})}
 function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
 function closeStock(){$("stockModal").classList.remove("show")}
 function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),pack=Number($("sPack").value)||1,min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return appAlert("Lengkapi nama, isi/pack, minimum pack, dan stok pack.","Data belum lengkap");let old=id?stocks.find(a=>a.id==id):null;let initialQty=old?.initialQty??qty;let x={id:id?Number(id):Date.now(),name,unit:"pack",stockUnit:"pack",pack,min,qty,initialQty,lastSO:old?.lastSO??qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
@@ -1594,12 +1606,12 @@ function toggleTxActions(btn,id){
   selectedTxId=String(id);
 }
 function editTxFromInline(id){
-  const x=store.tx.find(a=>String(a.id)===String(id));
+  const x=findTxByEditKey(id);
   if(!x)return appAlert('Transaksi tidak ditemukan.','Edit Transaksi');
   openTx(id);
 }
 function deleteTxFromInline(id){
-  const x=store.tx.find(a=>String(a.id)===String(id));
+  const x=findTxByEditKey(id);
   if(!x)return appAlert('Transaksi tidak ditemukan.','Hapus Transaksi');
   removeTx(id);
 }
