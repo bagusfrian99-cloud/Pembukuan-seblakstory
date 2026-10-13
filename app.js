@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.22";
+const APP_VERSION="3.4.23";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -917,6 +917,8 @@ function renderDashboard(){
   daily.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-13}" text-anchor="middle" class="lineDay">${day.label}</text><text x="${x(i)}" y="${H-2}" text-anchor="middle" class="lineMonth">${day.month}</text>`;});
   svg+='</svg>';
   chart.innerHTML=svg;
+  // Buka grafik pada tanggal terbaru, tetapi pertahankan scroll horizontal agar tanggal lama tetap bisa dilihat.
+  chart.scrollLeft=Math.max(0,chart.scrollWidth-chart.clientWidth);
   const legend=chart.parentElement?.querySelector('.legend');
   if(legend)legend.innerHTML='<span><i class="dot" style="background:#269e69"></i>Total pemasukan (tunai + non-tunai)</span>';
 
@@ -925,6 +927,8 @@ function renderDashboard(){
     let cash=0,nonCash=0;
     for(const t of ordered){if(txDay(t)>=rangeStart)break;const a=Math.abs(Number(t.amount)||0),sgn=t.type==='out'?-1:(t.type==='in'?1:0);if(txPaymentMethod(t)==='Non Tunai')nonCash+=a*sgn;else cash+=a*sgn;}
     dataBox.innerHTML=days.map(day=>{const txs=ordered.filter(t=>txDay(t)===day.key);let income=0,expense=0;for(const t of txs){const a=Math.abs(Number(t.amount)||0);if(t.type==='in')income+=a;else if(t.type==='out')expense+=a;const sgn=t.type==='out'?-1:(t.type==='in'?1:0);if(txPaymentMethod(t)==='Non Tunai')nonCash+=a*sgn;else cash+=a*sgn;}return `<div class="dailyBalanceItem"><b>${day.label} ${day.month}</b><span>Total saldo<strong>${money(cash+nonCash)}</strong></span><span>Saldo tunai<strong>${money(cash)}</strong></span><span>Saldo non tunai<strong>${money(nonCash)}</strong></span><span class="dailyIn">Pemasukan<strong>${money(income)}</strong></span><span class="dailyOut">Pengeluaran<strong>${money(expense)}</strong></span></div>`;}).join('');
+    // Rincian juga langsung menampilkan hari terakhir; pengguna tetap bisa menggeser ke hari sebelumnya.
+    dataBox.scrollLeft=Math.max(0,dataBox.scrollWidth-dataBox.clientWidth);
   }
 }
 
