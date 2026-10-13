@@ -302,3 +302,11 @@ body.kasPageActive #kasFixedActions{display:grid!important}.kasInputActions .kas
 .candleAxis{font-size:9px;fill:#7a8495}
 .candleDay{font-size:8px;fill:#667085}
 .chartHint{font-size:10px;line-height:1.4;color:#778397;margin:8px 1px 0}
+
+
+/* v3.4.18: grafik garis saldo 18 Agustus sampai hari ini */
+.lineChart{width:100%;height:160px;display:block;overflow-x:auto;overflow-y:hidden;margin-top:4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.lineSvg{display:block;height:100%;overflow:visible}
+.lineGrid{stroke:#e9edf1;stroke-width:1;stroke-dasharray:3 3}
+.lineAxis{font-size:9px;fill:#7a8495}
+.lineDay{font-size:7px;fill:#667085}
