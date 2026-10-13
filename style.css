@@ -296,9 +296,9 @@ body.kasPageActive #kasFixedActions{display:grid!important}.kasInputActions .kas
 @media(max-width:380px){.kasInputActions{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 48px!important}.kasInputActions .kasMicBtn{width:48px!important;min-width:48px;font-size:21px}}
 
 /* v3.4.16 dashboard candlestick balance chart */
-.candleChart{width:100%;height:178px;display:block;overflow:hidden;margin-top:4px}
-.candleSvg{display:block;width:100%;height:100%;overflow:visible}
+.candleChart{width:100%;height:160px;display:block;overflow-x:auto;overflow-y:hidden;margin-top:4px;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.candleSvg{display:block;height:100%;overflow:visible}
 .candleGrid{stroke:#e9edf1;stroke-width:1;stroke-dasharray:3 3}
 .candleAxis{font-size:9px;fill:#7a8495}
-.candleDay{font-size:9px;fill:#667085}
+.candleDay{font-size:8px;fill:#667085}
 .chartHint{font-size:10px;line-height:1.4;color:#778397;margin:8px 1px 0}

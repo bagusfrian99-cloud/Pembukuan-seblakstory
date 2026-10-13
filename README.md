@@ -7,3 +7,6 @@ v3.3.91: perbaikan akses tombol Lihat Foto dan cache-busting PWA agar app.js ter
 v3.4.0: input transaksi Menerima/Membayar via suara, parser nominal Indonesia, dan update stok untuk pembelian suara.
 v3.4.4: popup saat voice ditekan, menampilkan hasil suara terlebih dahulu, lalu pengguna menekan Lanjutkan sebelum masuk ke konfirmasi transaksi.
 v3.4.1: perbaikan parser nominal bertitik/koma, unit Piece/Pak, dan ekstraksi nama transaksi agar tidak ikut membawa nominal.
+
+
+Versi 3.4.17: grafik dashboard diubah menjadi candlestick bulanan, label sumbu bawah hanya tanggal angka kecil, dan grafik bisa digeser horizontal di layar HP.

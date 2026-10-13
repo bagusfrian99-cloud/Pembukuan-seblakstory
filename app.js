@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.16";
+const APP_VERSION="3.4.17";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -876,49 +876,58 @@ function renderDashboard(){
   if(input) input.value=d;
 
   const chart=$('weekChart'); if(!chart) return;
-  const dayNames=['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-  const base=new Date(d+'T00:00:00');
+  // Grafik bulanan: satu candlestick untuk setiap tanggal pada bulan tanggal dashboard.
+  const [year,monthNum]=m.split('-').map(Number);
+  const monthStart=new Date(year,monthNum-1,1);
+  const dayCount=new Date(year,monthNum,0).getDate();
   const days=[];
-  for(let i=6;i>=0;i--){
-    const x=new Date(base); x.setDate(base.getDate()-i);
-    const key=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;
-    days.push({key,label:`${x.getDate()} ${dayNames[x.getDay()]}`,open:0,high:0,low:0,close:0,hasTx:false});
+  for(let n=1;n<=dayCount;n++){
+    const key=`${year}-${String(monthNum).padStart(2,'0')}-${String(n).padStart(2,'0')}`;
+    days.push({key,label:String(n),open:0,high:0,low:0,close:0,hasTx:false});
   }
   const dayMap=new Map(days.map(day=>[day.key,day]));
   const ordered=(Array.isArray(store.tx)?store.tx:[]).filter(t=>txDay(t)).slice().sort((a,b)=>String(a.date||'').localeCompare(String(b.date||'')));
   let running=0;
-  const firstKey=days[0].key;
+  const firstKey=days[0].key, lastKey=days[days.length-1].key;
+  // Mulai dari saldo kumulatif sebelum bulan yang sedang ditampilkan.
   for(const t of ordered){
-    const key=txDay(t), amount=Math.abs(Number(t.amount)||0), delta=t.type==='in'?amount:(t.type==='out'?-amount:0);
-    if(key<firstKey){running+=delta;continue;}
-    const day=dayMap.get(key);
-    if(!day){if(key>days[days.length-1].key)break;running+=delta;continue;}
-    if(!day.hasTx){day.open=running;day.high=running;day.low=running;day.hasTx=true;}
-    running+=delta;day.high=Math.max(day.high,running);day.low=Math.min(day.low,running);day.close=running;
+    const key=txDay(t);
+    if(key>=firstKey) break;
+    const amount=Math.abs(Number(t.amount)||0);
+    running+=t.type==='in'?amount:(t.type==='out'?-amount:0);
   }
-  // Isi hari kosong dengan saldo penutupan dari hari sebelumnya.
-  let prev=0;
   for(const day of days){
-    if(day.hasTx){prev=day.close;}else{day.open=day.high=day.low=day.close=prev;}
+    day.open=running;day.high=running;day.low=running;
+    for(const t of ordered){
+      const key=txDay(t);
+      if(key<day.key) continue;
+      if(key>day.key) break;
+      const amount=Math.abs(Number(t.amount)||0), delta=t.type==='in'?amount:(t.type==='out'?-amount:0);
+      running+=delta;day.high=Math.max(day.high,running);day.low=Math.min(day.low,running);day.hasTx=true;
+    }
+    day.close=running;
+    if(!day.hasTx) day.high=day.low=day.close=day.open;
   }
   const values=days.flatMap(day=>[day.high,day.low,day.open,day.close]);
   let min=Math.min(...values), max=Math.max(...values);
   if(min===max){min-=1;max+=1;}
-  const pad=(max-min)*0.12; min-=pad;max+=pad;
-  const W=340,H=176,left=8,right=46,top=12,bottom=28,plotH=H-top-bottom,plotW=W-left-right;
+  const pad=(max-min)*0.10; min-=pad;max+=pad;
+  const slot=20, left=8,right=42,top=12,bottom=20,W=left+dayCount*slot+right,H=158;
+  const plotH=H-top-bottom,plotW=dayCount*slot;
   const y=v=>top+(max-v)/(max-min)*plotH;
   const compact=n=>{n=Number(n)||0;const sign=n<0?'-':'';n=Math.abs(n);if(n>=1e6)return sign+(n/1e6).toFixed(n%1e6?1:0).replace('.0','')+'Jt';if(n>=1e3)return sign+Math.round(n/1e3)+'K';return sign+Math.round(n)};
-  let svg=`<svg class="candleSvg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Candlestick saldo tujuh hari">`;
-  for(let g=0;g<4;g++){const val=max-(max-min)*g/3, gy=y(val);svg+=`<line x1="${left}" y1="${gy}" x2="${left+plotW}" y2="${gy}" class="candleGrid"/><text x="${left+plotW+5}" y="${gy+3}" class="candleAxis">${compact(val)}</text>`;}
-  const slot=plotW/days.length, bodyW=Math.min(13,slot*0.43);
+  let svg=`<svg class="candleSvg" style="width:${W}px;min-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik candlestick saldo bulanan, tanggal 1 sampai ${dayCount}">`;
+  for(let g=0;g<4;g++){const val=max-(max-min)*g/3,gy=y(val);svg+=`<line x1="${left}" y1="${gy}" x2="${left+plotW}" y2="${gy}" class="candleGrid"/><text x="${left+plotW+4}" y="${gy+3}" class="candleAxis">${compact(val)}</text>`;}
+  const bodyW=Math.min(10,slot*0.48);
   days.forEach((day,i)=>{
-    const cx=left+slot*(i+.5), yo=y(day.open), yc=y(day.close), yh=y(day.high), yl=y(day.low), up=day.close>=day.open, color=up?'#24a879':'#e84e55';
-    const bodyY=Math.min(yo,yc), bodyH=Math.max(2,Math.abs(yc-yo));
-    svg+=`<line x1="${cx}" y1="${yh}" x2="${cx}" y2="${yl}" stroke="${color}" stroke-width="1.5"/><rect x="${cx-bodyW/2}" y="${bodyY}" width="${bodyW}" height="${bodyH}" rx="1" fill="${color}"/>`;
-    svg+=`<text x="${cx}" y="${H-10}" text-anchor="middle" class="candleDay">${day.label}</text>`;
+    const cx=left+slot*(i+.5),yo=y(day.open),yc=y(day.close),yh=y(day.high),yl=y(day.low),up=day.close>=day.open,color=up?'#24a879':'#e84e55';
+    const bodyY=Math.min(yo,yc),bodyH=Math.max(1.5,Math.abs(yc-yo));
+    svg+=`<line x1="${cx}" y1="${yh}" x2="${cx}" y2="${yl}" stroke="${color}" stroke-width="1.2"/><rect x="${cx-bodyW/2}" y="${bodyY}" width="${bodyW}" height="${bodyH}" rx="1" fill="${color}"/>`;
+    svg+=`<text x="${cx}" y="${H-6}" text-anchor="middle" class="candleDay">${day.label}</text>`;
   });
   svg+='</svg>';
   chart.innerHTML=svg;
+
 }
 
 function renderTransactions(){
