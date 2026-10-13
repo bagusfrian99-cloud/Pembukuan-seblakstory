@@ -902,22 +902,27 @@ function renderDashboard(){
     day.value=running;
   }
   if(!days.length){chart.innerHTML='';return;}
-  const values=days.map(d=>d.value);
-  let min=Math.min(...values),max=Math.max(...values);
+  // Tiga seri dalam satu grafik: saldo akhir kumulatif, pemasukan harian, pengeluaran harian.
+  const daily=days.map(day=>{const txs=ordered.filter(t=>txDay(t)===day.key);let income=0,expense=0;for(const t of txs){const a=Math.abs(Number(t.amount)||0);if(t.type==='in')income+=a;else if(t.type==='out')expense+=a;}return {...day,income,expense};});
+  const values=[...daily.map(d=>d.value),...daily.map(d=>d.income),...daily.map(d=>d.expense)];
+  let min=Math.min(0,...values),max=Math.max(0,...values);
   if(min===max){const pad=Math.max(Math.abs(max)*0.05,1000);min-=pad;max+=pad;}
   const pad=(max-min)*0.1;min-=pad;max+=pad;
-  const slot=18,left=8,right=46,top=12,bottom=20,W=left+days.length*slot+right,H=158;
-  const plotH=H-top-bottom,plotW=days.length*slot;
+  const slot=18,left=8,right=48,top=12,bottom=24,W=left+daily.length*slot+right,H=166;
+  const plotH=H-top-bottom,plotW=daily.length*slot;
   const x=i=>left+slot*(i+.5),y=v=>top+(max-v)/(max-min)*plotH;
   const compact=n=>{n=Number(n)||0;const sign=n<0?'-':'';n=Math.abs(n);if(n>=1e6)return sign+(n/1e6).toFixed(n%1e6?1:0).replace('.0','')+'Jt';if(n>=1e3)return sign+Math.round(n/1e3)+'K';return sign+Math.round(n)};
-  let svg=`<svg class="lineSvg" style="width:${W}px;min-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik garis saldo harian dari 18 Agustus sampai ${rangeEnd}">`;
+  let svg=`<svg class="lineSvg" style="width:${W}px;min-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik saldo total, pemasukan harian, dan pengeluaran harian dari 18 Agustus sampai ${rangeEnd}">`;
   for(let g=0;g<4;g++){const val=max-(max-min)*g/3,gy=y(val);svg+=`<line x1="${left}" y1="${gy}" x2="${left+plotW}" y2="${gy}" class="lineGrid"/><text x="${left+plotW+4}" y="${gy+3}" class="lineAxis">${compact(val)}</text>`;}
-  const points=days.map((d,i)=>`${x(i)},${y(d.value)}`).join(' ');
-  svg+=`<polyline points="${points}" fill="none" stroke="#2f8bd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
-  // Tampilkan setiap tanggal tanpa loncat; area grafik bisa digeser horizontal.
-  days.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" class="lineDay">${day.label}</text><text x="${x(i)}" y="${H-2}" text-anchor="middle" class="lineMonth">${day.month}</text>`;});
+  const line=(key,color)=>`<polyline points="${daily.map((d,i)=>`${x(i)},${y(d[key])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+  svg+=line('value','#2f8bd5')+line('income','#269e69')+line('expense','#e64b52');
+  // Tanggal lengkap dan berurutan, tanpa melompati hari.
+  daily.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-13}" text-anchor="middle" class="lineDay">${day.label}</text><text x="${x(i)}" y="${H-2}" text-anchor="middle" class="lineMonth">${day.month}</text>`;});
   svg+='</svg>';
   chart.innerHTML=svg;
+  const legend=chart.parentElement?.querySelector('.legend');
+  if(legend)legend.innerHTML='<span><i class="dot" style="background:#2f8bd5"></i>Saldo total</span><span><i class="dot" style="background:#269e69"></i>Pemasukan</span><span><i class="dot" style="background:#e64b52"></i>Pengeluaran</span>';
+
   const dataBox=$('dailyBalanceDetails');
   if(dataBox){
     let cash=0,nonCash=0;
