@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.18";
+const APP_VERSION="3.4.19";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -914,9 +914,8 @@ function renderDashboard(){
   for(let g=0;g<4;g++){const val=max-(max-min)*g/3,gy=y(val);svg+=`<line x1="${left}" y1="${gy}" x2="${left+plotW}" y2="${gy}" class="lineGrid"/><text x="${left+plotW+4}" y="${gy+3}" class="lineAxis">${compact(val)}</text>`;}
   const points=days.map((d,i)=>`${x(i)},${y(d.value)}`).join(' ');
   svg+=`<polyline points="${points}" fill="none" stroke="#2f8bd5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
-  // Label tanggal kecil saja; tampilkan label selang beberapa hari agar tidak bertumpuk.
-  const labelEvery=days.length>50?5:(days.length>25?3:(days.length>14?2:1));
-  days.forEach((day,i)=>{if(i%labelEvery===0||i===days.length-1){svg+=`<text x="${x(i)}" y="${H-5}" text-anchor="middle" class="lineDay">${day.label}</text>`;}});
+  // Tampilkan setiap tanggal tanpa loncat; area grafik bisa digeser horizontal.
+  days.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-5}" text-anchor="middle" class="lineDay">${day.label}</text>`;});
   svg+='</svg>';
   chart.innerHTML=svg;
 }
