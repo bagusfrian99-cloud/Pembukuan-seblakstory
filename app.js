@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.20";
+const APP_VERSION="3.4.22";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -902,26 +902,23 @@ function renderDashboard(){
     day.value=running;
   }
   if(!days.length){chart.innerHTML='';return;}
-  // Tiga seri dalam satu grafik: saldo akhir kumulatif, pemasukan harian, pengeluaran harian.
-  const daily=days.map(day=>{const txs=ordered.filter(t=>txDay(t)===day.key);let income=0,expense=0;for(const t of txs){const a=Math.abs(Number(t.amount)||0);if(t.type==='in')income+=a;else if(t.type==='out')expense+=a;}return {...day,income,expense};});
-  const values=[...daily.map(d=>d.value),...daily.map(d=>d.income),...daily.map(d=>d.expense)];
-  let min=Math.min(0,...values),max=Math.max(0,...values);
-  if(min===max){const pad=Math.max(Math.abs(max)*0.05,1000);min-=pad;max+=pad;}
-  const pad=(max-min)*0.1;min-=pad;max+=pad;
+  // Grafik hanya menampilkan total pemasukan harian (tunai + non-tunai).
+  const daily=days.map(day=>{const txs=ordered.filter(t=>txDay(t)===day.key);let income=0;for(const t of txs){if(t.type==='in')income+=Math.abs(Number(t.amount)||0);}return {...day,income};});
+  const maxIncome=Math.max(0,...daily.map(d=>d.income));
+  const max=maxIncome>0?maxIncome*1.12:1000;
   const slot=18,left=8,right=48,top=12,bottom=24,W=left+daily.length*slot+right,H=166;
   const plotH=H-top-bottom,plotW=daily.length*slot;
-  const x=i=>left+slot*(i+.5),y=v=>top+(max-v)/(max-min)*plotH;
-  const compact=n=>{n=Number(n)||0;const sign=n<0?'-':'';n=Math.abs(n);if(n>=1e6)return sign+(n/1e6).toFixed(n%1e6?1:0).replace('.0','')+'Jt';if(n>=1e3)return sign+Math.round(n/1e3)+'K';return sign+Math.round(n)};
-  let svg=`<svg class="lineSvg" style="width:${W}px;min-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik saldo total, pemasukan harian, dan pengeluaran harian dari 18 Agustus sampai ${rangeEnd}">`;
-  for(let g=0;g<4;g++){const val=max-(max-min)*g/3,gy=y(val);svg+=`<line x1="${left}" y1="${gy}" x2="${left+plotW}" y2="${gy}" class="lineGrid"/><text x="${left+plotW+4}" y="${gy+3}" class="lineAxis">${compact(val)}</text>`;}
-  const line=(key,color)=>`<polyline points="${daily.map((d,i)=>`${x(i)},${y(d[key])}`).join(' ')}" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>`;
-  svg+=line('value','#2f8bd5')+line('income','#269e69')+line('expense','#e64b52');
-  // Tanggal lengkap dan berurutan, tanpa melompati hari.
+  const x=i=>left+slot*(i+.5),y=v=>top+(max-v)/max*plotH;
+  const compact=n=>{n=Number(n)||0;n=Math.abs(n);if(n>=1e6)return (n/1e6).toFixed(n%1e6?1:0).replace('.0','')+'Jt';if(n>=1e3)return Math.round(n/1e3)+'K';return Math.round(n)};
+  let svg=`<svg class="lineSvg" style="width:${W}px;min-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Grafik total pemasukan harian tunai dan non-tunai dari 18 Agustus sampai ${rangeEnd}">`;
+  for(let g=0;g<4;g++){const val=max*(1-g/3),gy=y(val);svg+=`<line x1="${left}" y1="${gy}" x2="${left+plotW}" y2="${gy}" class="lineGrid"/><text x="${left+plotW+4}" y="${gy+3}" class="lineAxis">${compact(val)}</text>`;}
+  svg+=`<polyline points="${daily.map((d,i)=>`${x(i)},${y(d.income)}`).join(' ')}" fill="none" stroke="#269e69" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // Tanggal ditampilkan berurutan, dengan bulan di bawah tanggal.
   daily.forEach((day,i)=>{svg+=`<text x="${x(i)}" y="${H-13}" text-anchor="middle" class="lineDay">${day.label}</text><text x="${x(i)}" y="${H-2}" text-anchor="middle" class="lineMonth">${day.month}</text>`;});
   svg+='</svg>';
   chart.innerHTML=svg;
   const legend=chart.parentElement?.querySelector('.legend');
-  if(legend)legend.innerHTML='<span><i class="dot" style="background:#2f8bd5"></i>Saldo total</span><span><i class="dot" style="background:#269e69"></i>Pemasukan</span><span><i class="dot" style="background:#e64b52"></i>Pengeluaran</span>';
+  if(legend)legend.innerHTML='<span><i class="dot" style="background:#269e69"></i>Total pemasukan (tunai + non-tunai)</span>';
 
   const dataBox=$('dailyBalanceDetails');
   if(dataBox){

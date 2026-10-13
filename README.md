@@ -13,3 +13,6 @@ Versi 3.4.18: grafik dashboard diubah menjadi grafik garis saldo harian dari 18 
 
 
 Versi 3.4.21: label bulan ditampilkan di bawah setiap angka tanggal pada grafik dashboard. Ditambahkan rincian harian yang dapat digeser horizontal berisi saldo total, saldo tunai, saldo non tunai, pemasukan, dan pengeluaran.
+
+
+Versi 3.4.22: grafik dashboard disederhanakan menjadi satu garis total pemasukan harian, menjumlahkan seluruh transaksi pemasukan tunai dan non-tunai. Rincian saldo dan transaksi harian di bawah grafik tetap tersedia.
