@@ -18,3 +18,6 @@ Versi 3.4.21: label bulan ditampilkan di bawah setiap angka tanggal pada grafik 
 Versi 3.4.23: grafik dashboard disederhanakan menjadi satu garis total pemasukan harian, menjumlahkan seluruh transaksi pemasukan tunai dan non-tunai. Rincian saldo dan transaksi harian di bawah grafik tetap tersedia.
 
 Versi 3.4.23: grafik dan rincian keuangan harian otomatis dibuka pada tanggal paling baru (hari ini), dengan geser horizontal tetap aktif untuk melihat tanggal sebelumnya.
+
+
+Versi 3.4.24: kualitas foto struk ditingkatkan agar tulisan nota lebih terbaca; resolusi sampai 1600px dan kompresi lebih ringan. Foto lama yang sudah blur tidak dapat memulihkan detail yang hilang, sehingga struk lama perlu difoto ulang jika memungkinkan.

@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.23";
+const APP_VERSION="3.4.24";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -233,7 +233,8 @@ async function compressReceiptDataURL(data){
   if(!data||typeof data!=="string"||!data.startsWith("data:image/"))return data||"";
   try{
     const img=await new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>resolve(im);im.onerror=reject;im.src=data;});
-    const max=700;
+    // Receipt photos need readable small text: keep up to 1600px and use moderate compression.
+    const max=1600;
     const scale=Math.min(1,max/Math.max(img.naturalWidth||img.width,img.naturalHeight||img.height));
     const c=document.createElement("canvas");
     c.width=Math.max(1,Math.round((img.naturalWidth||img.width)*scale));
@@ -241,11 +242,16 @@ async function compressReceiptDataURL(data){
     const ctx=c.getContext("2d",{alpha:false});
     ctx.fillStyle="#fff";ctx.fillRect(0,0,c.width,c.height);ctx.drawImage(img,0,0,c.width,c.height);
     let out="";
-    if(c.toDataURL("image/webp",0.45).startsWith("data:image/webp")) out=c.toDataURL("image/webp",0.45);
-    else out=c.toDataURL("image/jpeg",0.50);
-    // Keep backup compact even for unusually detailed receipts.
-    if(out.length>140000){
-      out=(c.toDataURL("image/webp",0.30).startsWith("data:image/webp")?c.toDataURL("image/webp",0.30):c.toDataURL("image/jpeg",0.35));
+    if(c.toDataURL("image/webp",0.80).startsWith("data:image/webp")) out=c.toDataURL("image/webp",0.80);
+    else out=c.toDataURL("image/jpeg",0.80);
+    // For very large photos, reduce file size slightly without crushing the receipt text.
+    if(out.length>520000){
+      const max2=1400, scale2=Math.min(1,max2/Math.max(c.width,c.height));
+      const c2=document.createElement("canvas");
+      c2.width=Math.max(1,Math.round(c.width*scale2));c2.height=Math.max(1,Math.round(c.height*scale2));
+      const ctx2=c2.getContext("2d",{alpha:false});ctx2.fillStyle="#fff";ctx2.fillRect(0,0,c2.width,c2.height);ctx2.drawImage(c,0,0,c2.width,c2.height);
+      out=c2.toDataURL("image/webp",0.70);
+      if(!out.startsWith("data:image/webp"))out=c2.toDataURL("image/jpeg",0.70);
     }
     return out;
   }catch(e){return data;}
