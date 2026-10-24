@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.24";
+const APP_VERSION="3.4.25";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -823,6 +823,7 @@ function openTransfer(){
   $("transferAmount").value="500000";
   $("transferDirection").value=appMode==="usaha"?"usaha_to_rumah":"rumah_to_usaha";
   $("transferNote").value="";
+  if($("transferPaymentMethod"))$("transferPaymentMethod").value="Tunai";
   modal.classList.add("show");
   setTimeout(()=>$("transferAmount")?.focus(),80);
 }
@@ -832,6 +833,7 @@ function saveTransfer(){
     const amountEl=$("transferAmount");
     const dirEl=$("transferDirection");
     const noteEl=$("transferNote");
+    const paymentMethod=String($("transferPaymentMethod")?.value||"Tunai")==="Non Tunai"?"Non Tunai":"Tunai";
     const n=Number(String(amountEl?.value||"").replace(/[^0-9]/g,""));
     if(!Number.isFinite(n)||n<=0){appAlert("Jumlah transfer harus lebih dari 0.","Transfer Antar Akun");return false;}
     const dir=String(dirEl?.value||"");
@@ -846,11 +848,11 @@ function saveTransfer(){
     const id=Date.now();
     const nowDate=localDT();
     if(appMode==="usaha"){
-      store.tx.push({id,type:"out",date:nowDate,name:"Transfer ke Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-      target.tx.push({id:id+1,type:"in",date:nowDate,name:"Transfer dari Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+      store.tx.push({id,type:"out",date:nowDate,name:"Transfer ke Rumah",amount:n,paymentMethod,note,source:"TRANSFER"});
+      target.tx.push({id:id+1,type:"in",date:nowDate,name:"Transfer dari Usaha",amount:n,paymentMethod,note,source:"TRANSFER"});
     }else{
-      store.tx.push({id,type:"out",date:nowDate,name:"Transfer ke Usaha",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
-      target.tx.push({id:id+1,type:"in",date:nowDate,name:"Transfer dari Rumah",amount:n,paymentMethod:"Tunai",note,source:"TRANSFER"});
+      store.tx.push({id,type:"out",date:nowDate,name:"Transfer ke Usaha",amount:n,paymentMethod,note,source:"TRANSFER"});
+      target.tx.push({id:id+1,type:"in",date:nowDate,name:"Transfer dari Rumah",amount:n,paymentMethod,note,source:"TRANSFER"});
     }
     persistModeStore();
     localStorage.setItem(targetKey,JSON.stringify(target));
