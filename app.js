@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.26";
+const APP_VERSION="3.4.28";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -94,6 +94,23 @@ function normalizeTxData(){
 normalizeTxData();
 const $=id=>document.getElementById(id);
 const money=n=>new Intl.NumberFormat("id-ID",{style:"currency",currency:"IDR",maximumFractionDigits:0}).format(Number(n)||0);
+
+const parseNominalInput=el=>Number(String(el?.value??"").replace(/[^0-9]/g,""))||0;
+const isNominalInput=el=>!!el&&(["tAmount","transferAmount","manualPurchasePrice","buyPrice"].includes(el.id)||el.classList?.contains("bulkPrice"));
+document.addEventListener("input",e=>{
+  const el=e.target;if(!isNominalInput(el))return;
+  const raw=String(el.value||"").replace(/[^0-9]/g,"");
+  const caret=el.selectionStart??raw.length;
+  const digitsBefore=String(el.value||"").slice(0,caret).replace(/[^0-9]/g,"").length;
+  const formatted=raw.replace(/\B(?=(\d{3})+(?!\d))/g,".");
+  if(el.value!==formatted){
+    el.value=formatted;
+    let p=0,count=0;
+    while(p<formatted.length&&count<digitsBefore){if(/\d/.test(formatted[p]))count++;p++;}
+    try{el.setSelectionRange(p,p);}catch(_){}
+  }
+});
+const setNominalValue=(el,value)=>{if(el)el.value=String(Math.max(0,Math.round(Number(value)||0))).replace(/\B(?=(\d{3})+(?!\d))/g,".");};
 const printerMoney=n=>"Rp "+Math.round(Number(n)||0).toLocaleString("en-US").replace(/,/g,".");
 function sanitizePrinterText(text){return String(text).replace(/\u00a0/g," ").replace(/[\u2000-\u200B\u202F]/g," ").normalize("NFKC").replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2013|\u2014/g,"-").replace(/\u2026/g,"...");}
 const today=()=>{
@@ -504,7 +521,7 @@ function openTx(id=null, forcedType=null){
         $("tName").value=x.name||"";
         $("tExpensePayment").value=txPaymentMethod(x);
       }
-      $("tAmount").value=x.amount;
+      setNominalValue($("tAmount"),x.amount);
       $("tNote").value=x.note||"";
       pendingExpensePhoto=(x.type==="out"&&x.photo)?String(x.photo):"";
       showExpensePhotoPreview(pendingExpensePhoto);
@@ -517,7 +534,7 @@ async function saveTx(){
   const isIncome=$("tType").value==="in";
   let name=appMode==="rumah" ? $("tName").value.trim() : (isIncome ? $("tIncomeName").value : $("tName").value.trim());
   const paymentMethod=isIncome ? name : ($("tExpensePayment").value||"Tunai");
-  const amount=Number($("tAmount").value);
+  const amount=parseNominalInput($("tAmount"));
   const id=String($("editId").value||"").trim();
   if(!name||!Number.isFinite(amount)||amount<=0)return appAlert("Nama transaksi dan jumlah wajib diisi.","Data belum lengkap");
   const date=$("tDate").value||localDT();
@@ -820,7 +837,7 @@ function setDashboardDate(value){
 function openTransfer(){
   const modal=$("transferModal");
   if(!modal)return;
-  $("transferAmount").value="500000";
+  setNominalValue($("transferAmount"),500000);
   $("transferDirection").value=appMode==="usaha"?"usaha_to_rumah":"rumah_to_usaha";
   $("transferNote").value="";
   if($("transferPaymentMethod"))$("transferPaymentMethod").value="Tunai";
@@ -997,15 +1014,15 @@ function formatPriceDiff(current,last){
 }
 function updateBuyPriceInfo(){
   const id=Number($("buyId").value),x=stocks.find(a=>a.id===id);if(!x)return;
-  const last=getLastBuyPrice(x),current=Number($("buyPrice").value)||0;
+  const last=getLastBuyPrice(x),current=parseNominalInput($("buyPrice"));
   $("buyLastPrice").textContent=last?money(last):"Belum ada pembelian sebelumnya";
   $("buyPriceDiff").textContent=formatPriceDiff(current,last);
   $("buyPriceDiff").className=`priceDiff ${last&&current?(current>last?"up":current<last?"down":"same"):""}`;
 }
-function openBuy(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("buyModal").classList.add("show");$("buyId").value=id;$("buyPack").value=1;const last=getLastBuyPrice(x);$("buyPrice").value=last||0;$("buyLabel").textContent=`Beli ${x.name}`;$("buyInfo").textContent=`Stok sekarang: ${x.qty} pack`;updateBuyTotal();updateBuyPriceInfo()}
+function openBuy(id){let x=stocks.find(a=>a.id==id);if(!x)return;$("buyModal").classList.add("show");$("buyId").value=id;$("buyPack").value=1;const last=getLastBuyPrice(x);setNominalValue($("buyPrice"),last||0);$("buyLabel").textContent=`Beli ${x.name}`;$("buyInfo").textContent=`Stok sekarang: ${x.qty} pack`;updateBuyTotal();updateBuyPriceInfo()}
 function closeBuy(){$("buyModal").classList.remove("show")}
-function updateBuyTotal(){let packs=Number($("buyPack").value)||0,price=Number($("buyPrice").value)||0;$("buyTotal").textContent=money(packs*price);updateBuyPriceInfo()}
-function saveBuy(){let id=Number($("buyId").value),packs=Number($("buyPack").value),price=Number($("buyPrice").value),x=stocks.find(a=>a.id===id);if(!x||packs<=0)return appAlert("Jumlah pack harus lebih dari 0.","Data tidak valid");if(price<=0)return appAlert("Harga per pack wajib diisi.","Data belum lengkap");let total=packs*price;x.qty+=packs;x.lastBuyPrice=price;store.tx.push({id:Date.now(),type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount:total,paymentMethod:"Tunai",note:`${packs} pack × ${money(price)} per pack`});persist();closeBuy();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`Pembelian tersimpan. Total ${money(total)} masuk ke Pengeluaran Hari Ini.`,"Pembelian tersimpan")}
+function updateBuyTotal(){let packs=Number($("buyPack").value)||0,price=parseNominalInput($("buyPrice"));$("buyTotal").textContent=money(packs*price);updateBuyPriceInfo()}
+function saveBuy(){let id=Number($("buyId").value),packs=Number($("buyPack").value),price=parseNominalInput($("buyPrice")),x=stocks.find(a=>a.id===id);if(!x||packs<=0)return appAlert("Jumlah pack harus lebih dari 0.","Data tidak valid");if(price<=0)return appAlert("Harga per pack wajib diisi.","Data belum lengkap");let total=packs*price;x.qty+=packs;x.lastBuyPrice=price;store.tx.push({id:Date.now(),type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount:total,paymentMethod:"Tunai",note:`${packs} pack × ${money(price)} per pack`});persist();closeBuy();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`Pembelian tersimpan. Total ${money(total)} masuk ke Pengeluaran Hari Ini.`,"Pembelian tersimpan")}
 function openEditDelete(id){
   let x=stocks.find(a=>a.id==id); if(!x)return;
   appChoice(`Pilih aksi untuk ${x.name}.`,[
@@ -1076,21 +1093,21 @@ async function printSelectedBulkBuy(){const items=bulkBuySelection.filter(x=>x.c
 function startBulkPurchase(){const selected=bulkBuySelection.filter(x=>x.checked);if(!selected.length)return appAlert("Centang minimal satu barang yang dibeli.","Selesai Belanja");localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(selected.map(x=>({id:x.id,name:x.name,buy:x.buy}))));openBulkPurchaseForItems(selected)}
 function openBulkPurchaseForItems(selected){
   $("bulkBuyModal").classList.remove("show");const list=$("bulkPurchaseList");
-  list.innerHTML=selected.map(x=>{const st=stocks.find(s=>s.id===x.id||s.name===x.name);const last=getLastBuyPrice(st);return `<div class="bulkPurchaseRow" data-bulk-id="${x.id||0}" data-bulk-name="${esc(x.name)}"><div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(x.name)}</b></label><span>Rencana ${x.buy} pack</span></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${x.buy}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="number" min="0" value="${last||0}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Harga terakhir: ${last?money(last):"Belum ada"}</small></div>`}).join("");
+  list.innerHTML=selected.map(x=>{const st=stocks.find(s=>s.id===x.id||s.name===x.name);const last=getLastBuyPrice(st);return `<div class="bulkPurchaseRow" data-bulk-id="${x.id||0}" data-bulk-name="${esc(x.name)}"><div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(x.name)}</b></label><span>Rencana ${x.buy} pack</span></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${x.buy}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="text" inputmode="numeric" autocomplete="off" min="0" value="${String(last||0).replace(/\B(?=(\d{3})+(?!\d))/g,".")}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Harga terakhir: ${last?money(last):"Belum ada"}</small></div>`}).join("");
   $("bulkPayment").value="Tunai";$("bulkPurchaseModal").classList.add("show");updateBulkPurchaseTotal();
 }
 function openManualPurchaseModal(){$("manualPurchaseName").value="";$("manualPurchasePack").value="1";$("manualPurchasePrice").value="";$("manualPurchaseModal").classList.add("show");setTimeout(()=>$("manualPurchaseName")?.focus(),100)}
 function closeManualPurchaseModal(){$("manualPurchaseModal").classList.remove("show")}
 function addManualPurchaseItem(){
-  const name=$("manualPurchaseName").value.trim(),packs=Number($("manualPurchasePack").value)||0,price=Number($("manualPurchasePrice").value)||0;
+  const name=$("manualPurchaseName").value.trim(),packs=Number($("manualPurchasePack").value)||0,price=parseNominalInput($("manualPurchasePrice"));
   if(!name)return appAlert("Nama barang wajib diisi.","Barang baru");if(packs<=0)return appAlert("Jumlah pack harus lebih dari 0.","Barang baru");if(price<=0)return appAlert("Harga per pack wajib diisi.","Barang baru");
   if(stocks.some(x=>String(x.name).trim().toLowerCase()===name.toLowerCase()))return appAlert("Barang dengan nama tersebut sudah ada. Gunakan barang yang sudah terdaftar.","Barang sudah ada");
-  const row=document.createElement("div");row.className="bulkPurchaseRow manualPurchaseRow";row.dataset.bulkId="manual-"+Date.now();row.dataset.bulkName=name;row.innerHTML=`<div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(name)}</b> <em class="newItemBadge">BARU</em></label><button type="button" class="manualRemoveBtn" onclick="this.closest('.bulkPurchaseRow').remove();updateBulkPurchaseTotal()">Hapus</button></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${packs}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="number" min="0" value="${price}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Barang baru — akan dibuat saat Simpan Semua</small>`;$("bulkPurchaseList").appendChild(row);closeManualPurchaseModal();updateBulkPurchaseTotal();}
+  const row=document.createElement("div");row.className="bulkPurchaseRow manualPurchaseRow";row.dataset.bulkId="manual-"+Date.now();row.dataset.bulkName=name;row.innerHTML=`<div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(name)}</b> <em class="newItemBadge">BARU</em></label><button type="button" class="manualRemoveBtn" onclick="this.closest('.bulkPurchaseRow').remove();updateBulkPurchaseTotal()">Hapus</button></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${packs}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="text" inputmode="numeric" autocomplete="off" min="0" value="${String(price).replace(/\B(?=(\d{3})+(?!\d))/g,".")}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Barang baru — akan dibuat saat Simpan Semua</small>`;$("bulkPurchaseList").appendChild(row);closeManualPurchaseModal();updateBulkPurchaseTotal();}
 function closeBulkPurchase(){$("bulkPurchaseModal").classList.remove("show")}
-function updateBulkPurchaseTotal(){let total=0;document.querySelectorAll(".bulkPurchaseRow").forEach(r=>{if(!r.querySelector(".bulkBought")?.checked)return;total+=(Number(r.querySelector(".bulkPack")?.value)||0)*(Number(r.querySelector(".bulkPrice")?.value)||0)});$("bulkPurchaseTotal").textContent=money(total)}
+function updateBulkPurchaseTotal(){let total=0;document.querySelectorAll(".bulkPurchaseRow").forEach(r=>{if(!r.querySelector(".bulkBought")?.checked)return;total+=(Number(r.querySelector(".bulkPack")?.value)||0)*(parseNominalInput(r.querySelector(".bulkPrice")))});$("bulkPurchaseTotal").textContent=money(total)}
 function saveBulkPurchase(){
   const rows=[...document.querySelectorAll(".bulkPurchaseRow")];let saved=0,total=0;const payment=$("bulkPayment").value;
-  for(const r of rows){if(!r.querySelector(".bulkBought")?.checked)continue;const rawId=String(r.dataset.bulkId||""),name=String(r.dataset.bulkName||"").trim(),packs=Number(r.querySelector(".bulkPack")?.value)||0,price=Number(r.querySelector(".bulkPrice")?.value)||0;if(packs<=0)return appAlert(`Jumlah beli untuk ${name||"barang"} harus lebih dari 0 atau hilangkan centangnya.`,"Data belum lengkap");if(price<=0)return appAlert(`Harga per pack ${name||"barang"} wajib diisi.`,"Data belum lengkap");let x=rawId.startsWith("manual-")?null:stocks.find(a=>String(a.id)===rawId);if(!x)x=stocks.find(a=>String(a.name).trim().toLowerCase()===name.toLowerCase());if(!x){x={id:Date.now()+saved+Math.floor(Math.random()*1000),name,unit:"pack",stockUnit:"pack",pack:1,min:0,qty:0,initialQty:0,lastSO:0,lastBuyPrice:0};stocks.push(x)}x.qty=(Number(x.qty)||0)+packs;x.lastBuyPrice=price;const amount=packs*price;total+=amount;saved++;store.tx.push({id:Date.now()+saved,type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount,paymentMethod:payment,note:`${packs} pack × ${money(price)} per pack`})}
+  for(const r of rows){if(!r.querySelector(".bulkBought")?.checked)continue;const rawId=String(r.dataset.bulkId||""),name=String(r.dataset.bulkName||"").trim(),packs=Number(r.querySelector(".bulkPack")?.value)||0,price=parseNominalInput(r.querySelector(".bulkPrice"));if(packs<=0)return appAlert(`Jumlah beli untuk ${name||"barang"} harus lebih dari 0 atau hilangkan centangnya.`,"Data belum lengkap");if(price<=0)return appAlert(`Harga per pack ${name||"barang"} wajib diisi.`,"Data belum lengkap");let x=rawId.startsWith("manual-")?null:stocks.find(a=>String(a.id)===rawId);if(!x)x=stocks.find(a=>String(a.name).trim().toLowerCase()===name.toLowerCase());if(!x){x={id:Date.now()+saved+Math.floor(Math.random()*1000),name,unit:"pack",stockUnit:"pack",pack:1,min:0,qty:0,initialQty:0,lastSO:0,lastBuyPrice:0};stocks.push(x)}x.qty=(Number(x.qty)||0)+packs;x.lastBuyPrice=price;const amount=packs*price;total+=amount;saved++;store.tx.push({id:Date.now()+saved,type:"out",date:localDT(),name:`Pembelian stok - ${x.name}`,amount,paymentMethod:payment,note:`${packs} pack × ${money(price)} per pack`})}
   if(!saved)return appAlert("Belum ada barang yang dibeli. Centang barang yang benar-benar dibeli atau tambahkan barang baru.","Pembelian");persist();clearPendingBulkSelection();closeBulkPurchase();closeManualPurchaseModal();renderStock();renderDashboard();renderTransactions();renderReport();appAlert(`${saved} barang berhasil diperbarui.\nTotal pembelian: ${money(total)}`,"Pembelian tersimpan")
 }
 
@@ -1366,9 +1383,14 @@ async function telegramApi(token,method,body){
   let data; try{data=await res.json()}catch(e){throw new Error("Telegram tidak mengembalikan JSON. Periksa koneksi atau izin jaringan browser.")}
   if(!res.ok||!data.ok)throw new Error(data?.description||`Telegram API gagal (${res.status})`); return data.result;
 }
-function telegramMessageText(m){return m?.text||m?.caption||m?.message?.text||m?.message?.caption||m?.edited_message?.text||m?.edited_message?.caption||m?.channel_post?.text||m?.channel_post?.caption||m?.edited_channel_post?.text||m?.edited_channel_post?.caption||""}
+function telegramMessageText(m){
+  const x=m?.message||m?.edited_message||m?.channel_post||m?.edited_channel_post||m;
+  return String(x?.text??x?.caption??m?.text??m?.caption??"").replace(/\u00a0/g," ").trim();
+}
 function telegramMessageInfo(m){
-  const x=m?.message||m?.edited_message||m?.channel_post||m?.edited_channel_post||m; return {id:x?.message_id||m?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(m),chatType:x?.chat?.type||"",forwarded:!!(x?.forward_origin||x?.forward_from||x?.forward_from_chat)}
+  const updateType=m?.message?"message":m?.edited_message?"edited_message":m?.channel_post?"channel_post":m?.edited_channel_post?"edited_channel_post":"unknown";
+  const x=m?.message||m?.edited_message||m?.channel_post||m?.edited_channel_post||m;
+  return {id:x?.message_id||m?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(m),chatType:x?.chat?.type||"",forwarded:!!(x?.forward_origin||x?.forward_from||x?.forward_from_chat),senderId:x?.from?.id??null,senderName:x?.from?.username||x?.from?.first_name||"",senderIsBot:!!x?.from?.is_bot,updateType};
 }
 function parseTelegramShift(text){
   if(!text)return null;
@@ -1377,18 +1399,7 @@ function parseTelegramShift(text){
   const hasFields=/(?:Tanggal|Shift)\s*:/i.test(text) && /(?:Penjualan|Cash|Tunai|Nontunai|Non\s*Tunai|Pengeluaran)\s*:/i.test(text);
   if(!hasHeader&&!hasFields)return null;
   const val=(re)=>{const m=text.match(re);return m?m[1].trim():null};
-  const dateRaw=val(/Tanggal\s*:\s*([^\r\n]+)/i);
-  const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
-  const parseDate=(raw)=>{
-    if(!raw)return null;
-    let m=raw.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);
-    if(m)return {display:`${m[1]}/${m[2]}/${m[3]}`,day:`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`};
-    const months={januari:1,februari:2,maret:3,april:4,mei:5,juni:6,juli:7,agustus:8,september:9,oktober:10,november:11,desember:12};
-    m=raw.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
-    if(m&&months[m[2]])return {display:`${m[1]}/${months[m[2]]}/${m[3]}`,day:`${m[3]}-${String(months[m[2]]).padStart(2,'0')}-${m[1].padStart(2,'0')}`};
-    return null;
-  };
-  const parsedDate=parseDate(dateRaw); const date=parsedDate?.display||null;
+  const date=val(/Tanggal\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i); const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
   const cashier=val(/Kasir\s*:\s*([^\r\n]+)/i); const time=val(/Waktu\s*:\s*(\d{1,2}[:.]\d{2})/i);
   // Ambil angka uang hanya dari bagian nominal sebelum keterangan dalam kurung.
   // Contoh: "Nontunai: Rp 119.000 (5 transaksi)" harus menjadi 119000, bukan 1190005.
@@ -1404,7 +1415,7 @@ function parseTelegramShift(text){
   const nonCash=nonCashMatch?Number(nonCashMatch[1].replace(/\./g,""))||0:0;
   const expense=num(val(/Pengeluaran\s*:\s*([^\r\n]+)/i)); const balance=num(val(/Saldo\s*:\s*([^\r\n]+)/i));
   if(!date||!shift||(!cash&&!nonCash&&!sales))return null;
-  return {day:parsedDate.day,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
+  const [d,mo,y]=date.split('/'); return {day:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
 }
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
 const TG_DELETED_KEY="seblak_story_telegram_deleted_v1";
@@ -1433,36 +1444,35 @@ async function checkTelegramNow(showMessage=true){
     const tg=readTelegramSettings(); if(!tg.token)throw new Error("Token Telegram Bot belum diisi.");
     await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
     const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post","edited_channel_post"]});
-    const items=[]; let ignored=0,maxOffset=tg.offset||0,directSeen=0,directAccepted=0;
-    const seen=new Set();
-    const pendingKeys=new Set();
+    const items=[]; let ignored=0,maxOffset=tg.offset||0,botSeen=0,botAccepted=0,allSeen=0,wrongChat=0;
+    const ignoredSamples=[]; const seen=new Set(); const pendingKeys=new Set();
     for(const u of updates){
       maxOffset=Math.max(maxOffset,(u.update_id||0)+1);
-      const info=telegramMessageInfo(u);
-      if(info.chatType==="private")directSeen++;
-      // Pesan private adalah jalur langsung ke bot. Tetap terima pesan private
-      // meskipun Chat ID pengaturan berisi ID grup asal pesan forward.
-      // Grup/channel tetap harus cocok dengan Chat ID yang dikonfigurasi.
-      const isPrivate=info.chatType==="private";
-      if(tg.chatId&&String(info.chatId)!==String(tg.chatId)&&!isPrivate)continue;
+      const info=telegramMessageInfo(u); allSeen++;
+      if(info.senderIsBot)botSeen++;
+      if(tg.chatId&&String(info.chatId)!==String(tg.chatId)){wrongChat++;continue;}
       const parsed=parseTelegramShift(info.text);
-      if(!parsed){ignored++;continue}
+      if(!parsed){ignored++;if(ignoredSamples.length<3)ignoredSamples.push({from:info.senderName||"tidak diketahui",bot:info.senderIsBot,type:info.updateType,text:(info.text||"[pesan tanpa teks/caption]").slice(0,180)});continue;}
       const key=telegramSourceId(parsed);
       if(seen.has(key)||pendingKeys.has(key))continue;
-      // Laporan yang sudah pernah diterapkan hanya ditampilkan lagi bila nominalnya
-      // berbeda, sehingga kesalahan pembacaan lama dapat diperbaiki dengan Terapkan.
       const rows=(store.tx||[]).filter(x=>x.source==='TELEGRAM_SHIFT' && x.shiftId===parsed.shift && String(x.date||'').slice(0,10)===parsed.day);
       const existingCash=rows.find(x=>x.sourceId===`${key}-CASH`);
       const existingNon=rows.find(x=>x.sourceId===`${key}-NONCASH`);
       const existingExp=rows.find(x=>x.sourceId===`${key}-EXP`);
       const mismatch=Number(existingCash?.amount||0)!==parsed.cash || Number(existingNon?.amount||0)!==parsed.nonCash || Number(existingExp?.amount||0)!==parsed.expense;
       if(rows.length && !mismatch)continue;
-      seen.add(key);pendingKeys.add(key);if(info.chatType==="private")directAccepted++;items.push({updateId:u.update_id,sourceMessageId:info.id,parsed,sourceType:info.chatType||"unknown",forwarded:info.forwarded,chatId:info.chatId});
+      seen.add(key);pendingKeys.add(key);if(info.senderIsBot)botAccepted++;
+      items.push({updateId:u.update_id,sourceMessageId:info.id,parsed,sourceType:info.chatType||"unknown",forwarded:info.forwarded,chatId:info.chatId,senderIsBot:info.senderIsBot,senderName:info.senderName,updateType:info.updateType});
     }
-    const pending={items,maxOffset,ignored,checkedAt:new Date().toLocaleString("id-ID"),directSeen,directAccepted};
-    saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:`${items.length} laporan siap diperiksa • ${ignored} diabaikan • Pesan langsung: ${directAccepted}/${directSeen}`});
-    renderTelegramPreview(pending); $("tgStatus").textContent=`${items.length} laporan siap diperiksa • pesan langsung ${directAccepted}/${directSeen}`;
-    if(showMessage)appAlert(`Pengecekan Telegram selesai.\n\nLaporan siap diperiksa: ${items.length}\nPesan langsung dari bot: ${directAccepted}/${directSeen}\nDiabaikan: ${ignored}\n\nData belum masuk Buku Kas. Tekan Terapkan ke Pembukuan jika sudah sesuai.`,"Cek Telegram");
+    const pending={items,maxOffset,ignored,ignoredSamples,allSeen,wrongChat,checkedAt:new Date().toLocaleString("id-ID"),botSeen,botAccepted};
+    const diag=ignoredSamples.length?` • Contoh diabaikan: ${ignoredSamples[0].text}`:"";
+    const status=`${items.length} laporan siap diperiksa • Pesan bot: ${botAccepted}/${botSeen} • ${ignored} diabaikan${wrongChat?` • ${wrongChat} beda grup`:""}`;
+    saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:status+diag});
+    renderTelegramPreview(pending); $("tgStatus").textContent=status+(diag?`\n${diag}`:"");
+    if(showMessage){
+      const sample=ignoredSamples.length?`\n\nContoh pesan diabaikan (${ignoredSamples[0].from}):\n${ignoredSamples[0].text}`:"";
+      appAlert(`Pengecekan Telegram selesai.\n\nUpdate diterima: ${allSeen}\nLaporan siap diperiksa: ${items.length}\nPesan dari bot: ${botAccepted}/${botSeen}\nDiabaikan: ${ignored}\nBeda grup: ${wrongChat}${sample}\n\nData belum masuk Buku Kas. Tekan Terapkan ke Pembukuan jika sudah sesuai.`,"Cek Telegram");
+    }
   }catch(e){const tg=readTelegramSettings();const msg=e?.message||"Cek Telegram gagal.";saveTelegramSettingsLocal({...tg,lastStatus:"Gagal: "+msg});if($("tgStatus"))$("tgStatus").textContent="Gagal: "+msg;if(showMessage)appAlert(msg,"Cek Telegram gagal");}
   finally{telegramBusy=false}
 }
