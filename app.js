@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.29";
+const APP_VERSION="3.4.30";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -1352,8 +1352,8 @@ function exportStockReport(){
 
 
 function readTelegramSettings(){
-  try{const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");return x&&typeof x==="object"?{token:x.token||"",chatId:x.chatId||"",offset:Number(x.offset||0),lastSync:x.lastSync||"",lastStatus:x.lastStatus||"",pending:x.pending||null}:{token:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null}}
-  catch(e){return {token:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null}}
+  try{const x=JSON.parse(localStorage.getItem(TELEGRAM_SETTINGS_KEY)||"null");return x&&typeof x==="object"?{token:x.token||"",receiverToken:x.receiverToken||"",chatId:x.chatId||"",offset:Number(x.offset||0),lastSync:x.lastSync||"",lastStatus:x.lastStatus||"",pending:x.pending||null,replySent:Array.isArray(x.replySent)?x.replySent.map(String):[]}:{token:"",receiverToken:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null,replySent:[]}}
+  catch(e){return {token:"",receiverToken:"",chatId:"",offset:0,lastSync:"",lastStatus:"",pending:null,replySent:[]}}
 }
 function saveTelegramSettingsLocal(x){localStorage.setItem(TELEGRAM_SETTINGS_KEY,JSON.stringify(x))}
 function openTelegramDashboard(){
@@ -1366,16 +1366,16 @@ function openTelegramDashboard(){
 }
 
 function openTelegramSettings(){
-  const s=readTelegramSettings(); $("tgToken").value=s.token; $("tgChatId").value=s.chatId;
+  const s=readTelegramSettings(); $("tgToken").value=s.token; if($("tgReceiverToken"))$("tgReceiverToken").value=s.receiverToken; $("tgChatId").value=s.chatId;
   $("tgStatus").textContent=s.lastStatus||(s.lastSync?`Pengecekan terakhir: ${s.lastSync}`:"Belum mengecek Telegram.");
   renderTelegramPreview(s.pending); $("telegramModal").classList.add("show")
 }
 function closeTelegramSettings(){$("telegramModal").classList.remove("show","telegramDashboardMode")}
 function saveTelegramSettings(){
-  const old=readTelegramSettings(); const token=$("tgToken").value.trim()||old.token; const chatId=$("tgChatId").value.trim();
-  const s={...old,token,chatId}; saveTelegramSettingsLocal(s);
-  $("tgStatus").textContent="Pengaturan Telegram tersimpan. Gunakan tombol Cek Telegram untuk melihat data sebelum diterapkan.";
-  appAlert("Pengaturan Telegram tersimpan. Tidak ada sinkronisasi otomatis.","Input Telegram");
+  const old=readTelegramSettings(); const token=$("tgToken").value.trim()||old.token; const receiverToken=$("tgReceiverToken")?.value.trim()||old.receiverToken; const chatId=$("tgChatId").value.trim();
+  const s={...old,token,receiverToken,chatId}; saveTelegramSettingsLocal(s);
+  $("tgStatus").textContent="Pengaturan tersimpan. Penerimaan menggunakan token bot Seblak Story Pembukuan; token POS lama tetap disimpan.";
+  appAlert("Pengaturan Telegram tersimpan. Bot POS lama tidak diubah.","Input Telegram");
 }
 function telegramApiUrl(token,method){return `https://api.telegram.org/bot${encodeURIComponent(token)}/${method}`}
 async function telegramApi(token,method,body){
@@ -1415,7 +1415,7 @@ function parseTelegramShift(text){
     const m=String(v).match(/(?:Rp\s*)?([0-9][0-9.]*)/i);
     return m?Number(m[1].replace(/\./g,""))||0:0;
   };
-  const transactions=0; const sales=num(val(/Penjualan\s*:\s*([^\r\n]+)/i));
+  const transactions=num(val(/Transaksi\s*:\s*([^\r\n]+)/i)); const sales=num(val(/Penjualan\s*:\s*([^\r\n]+)/i));
   const cash=num(val(/(?:Cash|Tunai)\s*:\s*([^\r\n]+)/i));
   // Hanya baca nominal Nontunai. Angka jumlah transaksi dalam kurung diabaikan.
   const nonCashMatch=text.match(/(?:Nontunai|Non\s*Tunai)\s*:\s*(?:Rp\s*)?([0-9][0-9.]*)/i);
@@ -1445,12 +1445,21 @@ function renderTelegramPreview(pending){
   box.innerHTML=`<div class="tgPreviewHead"><b>${pending.items.length} laporan siap diperiksa</b><span>Belum masuk Buku Kas</span></div>${rows}`;
   if($("tgApplyBtn"))$("tgApplyBtn").disabled=false;
 }
+function telegramDetailReply(p){
+  return `✅ LAPORAN SHIFT DITERIMA\nSEBLAK STORY\n\nTanggal: ${p.date}\nWaktu: ${p.time||"-"}\nKasir: ${p.cashier||"-"}\nShift: ${p.shift}\nTransaksi: ${p.transactions||0}\nPenjualan: ${money(p.sales)}\nTunai: ${money(p.cash)}\nNontunai: ${money(p.nonCash)}\nPengeluaran: ${money(p.expense)}\nSaldo: ${money(p.balance)}\n\nStatus: Menunggu diterapkan ke Buku Kas.`;
+}
+async function sendTelegramDetailReply(token,chatId,p){
+  if(!chatId)return false;
+  await telegramApi(token,"sendMessage",{chat_id:chatId,text:telegramDetailReply(p),disable_web_page_preview:true});
+  return true;
+}
 async function checkTelegramNow(showMessage=true){
   if(telegramBusy)return; telegramBusy=true;
   try{
-    const tg=readTelegramSettings(); if(!tg.token)throw new Error("Token Telegram Bot belum diisi.");
-    await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
-    const updates=await telegramApi(tg.token,"getUpdates",{offset:Math.max(0,Number(tg.offset)||0),timeout:0,limit:100,allowed_updates:["message","edited_message","channel_post","edited_channel_post","business_message","edited_business_message"]});
+    const tg=readTelegramSettings(); const receiveToken=tg.receiverToken||""; if(!receiveToken)throw new Error("Token bot baru @seblak_pembukuan_bot belum diisi. Masukkan pada kolom Token Bot Pembukuan.");
+    // Hanya bot Pembukuan yang dipakai untuk membaca grup dan mengirim balasan. Token POS lama tidak disentuh.
+    await telegramApi(receiveToken,"deleteWebhook",{drop_pending_updates:false});
+    const updates=await telegramApi(receiveToken,"getUpdates",{offset:Math.max(0,Number(tg.offset)||0),timeout:0,limit:100,allowed_updates:["message","edited_message","channel_post","edited_channel_post"]});
     const items=[]; let ignored=0,maxOffset=tg.offset||0,botSeen=0,botAccepted=0,allSeen=0,wrongChat=0;
     const ignoredSamples=[]; const seen=new Set(); const pendingKeys=new Set();
     for(const u of updates){
@@ -1470,6 +1479,11 @@ async function checkTelegramNow(showMessage=true){
       if(rows.length && !mismatch)continue;
       seen.add(key);pendingKeys.add(key);if(info.senderIsBot)botAccepted++;
       items.push({updateId:u.update_id,sourceMessageId:info.id,parsed,sourceType:info.chatType||"unknown",forwarded:info.forwarded,chatId:info.chatId,senderIsBot:info.senderIsBot,senderKind:info.senderKind,senderName:info.senderName,updateType:info.updateType});
+      const replyKey=String(u.update_id); const replySent=new Set((tg.replySent||[]).map(String));
+      if(!replySent.has(replyKey)){
+        try{await sendTelegramDetailReply(receiveToken,info.chatId,parsed);replySent.add(replyKey);tg.replySent=[...replySent].slice(-200);}
+        catch(replyError){if(ignoredSamples.length<3)ignoredSamples.push({from:"Bot Pembukuan",bot:true,senderKind:"reply_error",type:"sendMessage",chatType:info.chatType,text:`Balasan detail gagal dikirim: ${replyError.message}`});}
+      }
     }
     const pending={items,maxOffset,ignored,ignoredSamples,allSeen,wrongChat,checkedAt:new Date().toLocaleString("id-ID"),botSeen,botAccepted};
     const diag=ignoredSamples.length?` • Contoh diabaikan: ${ignoredSamples[0].text}`:"";

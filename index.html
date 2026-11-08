@@ -69,7 +69,7 @@
 
 <section id="lainnya" class="page">
   <div class="sectionHead"><button onclick="page('dashboard',document.querySelector('[data-page=dashboard]'))">‹</button><h2>Lainnya</h2><span></span></div>
-  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.4.29 • Usaha + Rumah</small></div></div>
+  <div class="profileCard"><span class="logoBowl bigLogo">🍜</span><div><h3>Seblak Story Pembukuan</h3><small>Versi 3.4.30 • Usaha + Rumah</small></div></div>
   <div class="menuCard">
     <button onclick="page('backup',this)">↪ <span>Backup & Restore</span> ›</button>
     <button onclick="page('syncpos',this)">☁ <span>Sinkron dengan POS</span> ›</button>
@@ -112,11 +112,12 @@
 </div></div>
 
 <div class="modal" id="telegramModal"><div class="modalbox telegramBox"><h2 class="telegramDashboardTitle">Telegram → Pembukuan</h2><p class="sub telegramSettingsOnly">Cek laporan Telegram terlebih dahulu. Data tidak masuk ke Buku Kas sampai Anda menekan <b>Terapkan ke Pembukuan</b>.</p>
-<div class="telegramSettingsOnly"><label>Token Telegram Bot</label><input id="tgToken" type="password" placeholder="Masukkan token bot">
-<label>Chat ID (opsional)</label><input id="tgChatId" placeholder="Kosongkan untuk semua chat yang bot boleh baca"></div>
+<div class="telegramSettingsOnly"><label>Token Bot POS lama (disimpan, tidak dipakai untuk menerima)</label><input id="tgToken" type="password" placeholder="Token Seblak Story Backup lama" autocomplete="off">
+<label>Token Bot Pembukuan (@seblak_pembukuan_bot)</label><input id="tgReceiverToken" type="password" placeholder="Masukkan token bot Pembukuan baru" autocomplete="off">
+<label>Chat ID grup laporan (opsional)</label><input id="tgChatId" placeholder="Kosongkan untuk semua chat yang bot boleh baca"></div>
 <div class="tgStatus" id="tgStatus">Belum mengecek Telegram.</div>
 <div id="tgPreview" class="tgPreview"><div class="empty">Belum ada data Telegram yang menunggu diterapkan.</div></div>
-<div class="telegramHint">Alur langsung: Telegram → Bot → Pembukuan. Tidak ada sinkronisasi otomatis. Gunakan <b>Cek Telegram</b> untuk mengambil data, periksa hasilnya, lalu pilih <b>Terapkan ke Pembukuan</b>. Token disimpan lokal di perangkat. Jangan membagikan token bot.</div>
+<div class="telegramHint">Alur: Bot POS → Grup Telegram → Bot Pembukuan → PWA. Token POS lama tetap disimpan dan tidak digunakan untuk polling. Masukkan token bot baru @seblak_pembukuan_bot. Bot baru akan membalas laporan secara detail. Data masuk Buku Kas hanya setelah menekan <b>Terapkan ke Pembukuan</b>. Token disimpan lokal di perangkat; jangan membagikannya.</div>
 <div class="actions"><button class="primary tgCheckBtn" onclick="checkTelegramNow(true)">🔎 Cek Telegram</button><button class="tgUpdateBtn" onclick="updateTelegramNow()">🔄 Update Telegram</button><button id="tgApplyBtn" onclick="applyTelegramPending()" disabled>✓ Terapkan ke Pembukuan</button><button class="tgSaveBtn" onclick="saveTelegramSettings()">Simpan Pengaturan</button><button onclick="closeTelegramSettings()">Tutup</button></div>
 </div></div>
 <div class="modal" id="printerModal"><div class="modalbox printerBox"><h2>Pengaturan Printer</h2><p class="sub">Hubungkan printer thermal <b>Bluetooth BLE</b> agar dapat digunakan langsung dari aplikasi.</p>
@@ -172,5 +173,5 @@
 <div class="modal" id="dialogModal"><div class="modalbox compact dialogbox"><h2 id="dialogTitle">Pesan</h2><p id="dialogMessage" class="dialogMessage"></p><div class="actions" id="dialogActions"></div></div></div>
 <div class="modal" id="receiptModal" onclick="if(event.target===this)closeReceiptPhoto()"><div class="modalbox compact receiptModalBox"><div class="modalHead"><h2>🧾 Foto Struk</h2><button type="button" class="modalClose" onclick="closeReceiptPhoto()">✕</button></div><div id="receiptPhotoView" class="receiptPhotoView"></div><div class="actions"><button class="primary" type="button" onclick="closeReceiptPhoto()">Tutup</button></div></div></div>
 <div class="modal" id="txActionModal"><div class="modalbox compact"><h2>Aksi Transaksi</h2><p id="txActionMessage" class="dialogMessage"></p><div class="actions"><button onclick="closeTxActions()">Batal</button><button class="primary" onclick="editSelectedTx()">Edit</button><button class="danger" onclick="deleteSelectedTx()">Hapus</button></div></div></div>
-<script src="app.js?v=3.4.29"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();updateModeUI();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
-<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.4.29").catch(()=>{}));}</script></body></html>
+<script src="app.js?v=3.4.30"></script><script>normalizeTxData();if($('kasMonth'))$('kasMonth').value=today().slice(0,7);if($('reportFrom')){let d=new Date();d.setDate(1);$('reportFrom').value=d.toISOString().slice(0,10);$('reportTo').value=today();}renderDashboard();updateModeUI();initBackNavigation();if($('dashDate')&&!$('dashDate').textContent){$('dashDate').textContent=new Date().toLocaleDateString('id-ID',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});}</script>
+<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>navigator.serviceWorker.register("./sw.js?v=3.4.30").catch(()=>{}));}</script></body></html>
