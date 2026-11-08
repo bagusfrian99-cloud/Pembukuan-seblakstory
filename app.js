@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.28";
+const APP_VERSION="3.4.29";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -1383,14 +1383,21 @@ async function telegramApi(token,method,body){
   let data; try{data=await res.json()}catch(e){throw new Error("Telegram tidak mengembalikan JSON. Periksa koneksi atau izin jaringan browser.")}
   if(!res.ok||!data.ok)throw new Error(data?.description||`Telegram API gagal (${res.status})`); return data.result;
 }
-function telegramMessageText(m){
-  const x=m?.message||m?.edited_message||m?.channel_post||m?.edited_channel_post||m;
-  return String(x?.text??x?.caption??m?.text??m?.caption??"").replace(/\u00a0/g," ").trim();
+function telegramMessageObject(update){
+  const keys=["message","edited_message","channel_post","edited_channel_post","business_message","edited_business_message"];
+  for(const k of keys)if(update?.[k])return {message:update[k],type:k};
+  return {message:update?.message||update,type:"unknown"};
 }
-function telegramMessageInfo(m){
-  const updateType=m?.message?"message":m?.edited_message?"edited_message":m?.channel_post?"channel_post":m?.edited_channel_post?"edited_channel_post":"unknown";
-  const x=m?.message||m?.edited_message||m?.channel_post||m?.edited_channel_post||m;
-  return {id:x?.message_id||m?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(m),chatType:x?.chat?.type||"",forwarded:!!(x?.forward_origin||x?.forward_from||x?.forward_from_chat),senderId:x?.from?.id??null,senderName:x?.from?.username||x?.from?.first_name||"",senderIsBot:!!x?.from?.is_bot,updateType};
+function telegramMessageText(update){
+  const {message:x}=telegramMessageObject(update);
+  // Telegram mengirim isi pesan biasa pada text, sedangkan foto/dokumen bisa memakai caption.
+  return String(x?.text??x?.caption??update?.text??update?.caption??"").replace(/[\u00a0\u2007\u202f]/g," ").replace(/\r/g,"\n").trim();
+}
+function telegramMessageInfo(update){
+  const {message:x,type:updateType}=telegramMessageObject(update);
+  const sender=x?.from||x?.sender_chat||null;
+  const senderName=sender?.username||sender?.title||[sender?.first_name,sender?.last_name].filter(Boolean).join(" ")||"";
+  return {id:x?.message_id||update?.update_id||null,chatId:x?.chat?.id??null,text:telegramMessageText(update),chatType:x?.chat?.type||"",forwarded:!!(x?.forward_origin||x?.forward_from||x?.forward_from_chat),senderId:sender?.id??null,senderName,senderIsBot:!!(sender?.is_bot||x?.sender_business_bot),senderKind:x?.sender_chat?"sender_chat":x?.sender_business_bot?"business_bot":x?.from?.is_bot?"bot":"user",updateType};
 }
 function parseTelegramShift(text){
   if(!text)return null;
@@ -1443,7 +1450,7 @@ async function checkTelegramNow(showMessage=true){
   try{
     const tg=readTelegramSettings(); if(!tg.token)throw new Error("Token Telegram Bot belum diisi.");
     await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
-    const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post","edited_channel_post"]});
+    const updates=await telegramApi(tg.token,"getUpdates",{offset:Math.max(0,Number(tg.offset)||0),timeout:0,limit:100,allowed_updates:["message","edited_message","channel_post","edited_channel_post","business_message","edited_business_message"]});
     const items=[]; let ignored=0,maxOffset=tg.offset||0,botSeen=0,botAccepted=0,allSeen=0,wrongChat=0;
     const ignoredSamples=[]; const seen=new Set(); const pendingKeys=new Set();
     for(const u of updates){
@@ -1452,7 +1459,7 @@ async function checkTelegramNow(showMessage=true){
       if(info.senderIsBot)botSeen++;
       if(tg.chatId&&String(info.chatId)!==String(tg.chatId)){wrongChat++;continue;}
       const parsed=parseTelegramShift(info.text);
-      if(!parsed){ignored++;if(ignoredSamples.length<3)ignoredSamples.push({from:info.senderName||"tidak diketahui",bot:info.senderIsBot,type:info.updateType,text:(info.text||"[pesan tanpa teks/caption]").slice(0,180)});continue;}
+      if(!parsed){ignored++;if(ignoredSamples.length<3)ignoredSamples.push({from:info.senderName||"tidak diketahui",bot:info.senderIsBot,senderKind:info.senderKind,type:info.updateType,chatType:info.chatType,text:(info.text||"[pesan tanpa teks/caption]").slice(0,240)});continue;}
       const key=telegramSourceId(parsed);
       if(seen.has(key)||pendingKeys.has(key))continue;
       const rows=(store.tx||[]).filter(x=>x.source==='TELEGRAM_SHIFT' && x.shiftId===parsed.shift && String(x.date||'').slice(0,10)===parsed.day);
@@ -1462,7 +1469,7 @@ async function checkTelegramNow(showMessage=true){
       const mismatch=Number(existingCash?.amount||0)!==parsed.cash || Number(existingNon?.amount||0)!==parsed.nonCash || Number(existingExp?.amount||0)!==parsed.expense;
       if(rows.length && !mismatch)continue;
       seen.add(key);pendingKeys.add(key);if(info.senderIsBot)botAccepted++;
-      items.push({updateId:u.update_id,sourceMessageId:info.id,parsed,sourceType:info.chatType||"unknown",forwarded:info.forwarded,chatId:info.chatId,senderIsBot:info.senderIsBot,senderName:info.senderName,updateType:info.updateType});
+      items.push({updateId:u.update_id,sourceMessageId:info.id,parsed,sourceType:info.chatType||"unknown",forwarded:info.forwarded,chatId:info.chatId,senderIsBot:info.senderIsBot,senderKind:info.senderKind,senderName:info.senderName,updateType:info.updateType});
     }
     const pending={items,maxOffset,ignored,ignoredSamples,allSeen,wrongChat,checkedAt:new Date().toLocaleString("id-ID"),botSeen,botAccepted};
     const diag=ignoredSamples.length?` • Contoh diabaikan: ${ignoredSamples[0].text}`:"";
@@ -1470,7 +1477,7 @@ async function checkTelegramNow(showMessage=true){
     saveTelegramSettingsLocal({...tg,pending,lastSync:pending.checkedAt,lastStatus:status+diag});
     renderTelegramPreview(pending); $("tgStatus").textContent=status+(diag?`\n${diag}`:"");
     if(showMessage){
-      const sample=ignoredSamples.length?`\n\nContoh pesan diabaikan (${ignoredSamples[0].from}):\n${ignoredSamples[0].text}`:"";
+      const sample=ignoredSamples.length?`\n\nContoh pesan diabaikan (${ignoredSamples[0].from} • ${ignoredSamples[0].senderKind||"pengirim tidak diketahui"} • ${ignoredSamples[0].type}):\n${ignoredSamples[0].text}`:"";
       appAlert(`Pengecekan Telegram selesai.\n\nUpdate diterima: ${allSeen}\nLaporan siap diperiksa: ${items.length}\nPesan dari bot: ${botAccepted}/${botSeen}\nDiabaikan: ${ignored}\nBeda grup: ${wrongChat}${sample}\n\nData belum masuk Buku Kas. Tekan Terapkan ke Pembukuan jika sudah sesuai.`,"Cek Telegram");
     }
   }catch(e){const tg=readTelegramSettings();const msg=e?.message||"Cek Telegram gagal.";saveTelegramSettingsLocal({...tg,lastStatus:"Gagal: "+msg});if($("tgStatus"))$("tgStatus").textContent="Gagal: "+msg;if(showMessage)appAlert(msg,"Cek Telegram gagal");}
