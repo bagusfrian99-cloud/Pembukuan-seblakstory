@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.25";
+const APP_VERSION="3.4.26";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -1377,7 +1377,18 @@ function parseTelegramShift(text){
   const hasFields=/(?:Tanggal|Shift)\s*:/i.test(text) && /(?:Penjualan|Cash|Tunai|Nontunai|Non\s*Tunai|Pengeluaran)\s*:/i.test(text);
   if(!hasHeader&&!hasFields)return null;
   const val=(re)=>{const m=text.match(re);return m?m[1].trim():null};
-  const date=val(/Tanggal\s*:\s*(\d{1,2}\/\d{1,2}\/\d{4})/i); const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
+  const dateRaw=val(/Tanggal\s*:\s*([^\r\n]+)/i);
+  const shift=val(/Shift\s*:\s*([^\r\n]+)/i);
+  const parseDate=(raw)=>{
+    if(!raw)return null;
+    let m=raw.match(/(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})/);
+    if(m)return {display:`${m[1]}/${m[2]}/${m[3]}`,day:`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`};
+    const months={januari:1,februari:2,maret:3,april:4,mei:5,juni:6,juli:7,agustus:8,september:9,oktober:10,november:11,desember:12};
+    m=raw.toLowerCase().match(/(\d{1,2})\s+([a-z]+)\s+(\d{4})/);
+    if(m&&months[m[2]])return {display:`${m[1]}/${months[m[2]]}/${m[3]}`,day:`${m[3]}-${String(months[m[2]]).padStart(2,'0')}-${m[1].padStart(2,'0')}`};
+    return null;
+  };
+  const parsedDate=parseDate(dateRaw); const date=parsedDate?.display||null;
   const cashier=val(/Kasir\s*:\s*([^\r\n]+)/i); const time=val(/Waktu\s*:\s*(\d{1,2}[:.]\d{2})/i);
   // Ambil angka uang hanya dari bagian nominal sebelum keterangan dalam kurung.
   // Contoh: "Nontunai: Rp 119.000 (5 transaksi)" harus menjadi 119000, bukan 1190005.
@@ -1393,7 +1404,7 @@ function parseTelegramShift(text){
   const nonCash=nonCashMatch?Number(nonCashMatch[1].replace(/\./g,""))||0:0;
   const expense=num(val(/Pengeluaran\s*:\s*([^\r\n]+)/i)); const balance=num(val(/Saldo\s*:\s*([^\r\n]+)/i));
   if(!date||!shift||(!cash&&!nonCash&&!sales))return null;
-  const [d,mo,y]=date.split('/'); return {day:`${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
+  return {day:parsedDate.day,date,time:time?.replace('.',':')||"00:00",shift,cashier,transactions,sales,cash,nonCash,expense,balance};
 }
 function telegramSourceId(p){return `TG-SHIFT-${p.shift}-${p.day}`}
 const TG_DELETED_KEY="seblak_story_telegram_deleted_v1";
@@ -1421,7 +1432,7 @@ async function checkTelegramNow(showMessage=true){
   try{
     const tg=readTelegramSettings(); if(!tg.token)throw new Error("Token Telegram Bot belum diisi.");
     await telegramApi(tg.token,"deleteWebhook",{drop_pending_updates:false});
-    const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post"]});
+    const updates=await telegramApi(tg.token,"getUpdates",{offset:(tg.offset||0),timeout:0,allowed_updates:["message","edited_message","channel_post","edited_channel_post"]});
     const items=[]; let ignored=0,maxOffset=tg.offset||0,directSeen=0,directAccepted=0;
     const seen=new Set();
     const pendingKeys=new Set();
@@ -1429,7 +1440,11 @@ async function checkTelegramNow(showMessage=true){
       maxOffset=Math.max(maxOffset,(u.update_id||0)+1);
       const info=telegramMessageInfo(u);
       if(info.chatType==="private")directSeen++;
-      if(tg.chatId&&String(info.chatId)!==String(tg.chatId))continue;
+      // Pesan private adalah jalur langsung ke bot. Tetap terima pesan private
+      // meskipun Chat ID pengaturan berisi ID grup asal pesan forward.
+      // Grup/channel tetap harus cocok dengan Chat ID yang dikonfigurasi.
+      const isPrivate=info.chatType==="private";
+      if(tg.chatId&&String(info.chatId)!==String(tg.chatId)&&!isPrivate)continue;
       const parsed=parseTelegramShift(info.text);
       if(!parsed){ignored++;continue}
       const key=telegramSourceId(parsed);
