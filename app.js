@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.31";
+const APP_VERSION="3.4.32";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -1446,7 +1446,7 @@ function renderTelegramPreview(pending){
   if($("tgApplyBtn"))$("tgApplyBtn").disabled=false;
 }
 function telegramDetailReply(p){
-  return `✅ LAPORAN SHIFT DITERIMA\nSEBLAK STORY\n\nTanggal: ${p.date}\nWaktu: ${p.time||"-"}\nKasir: ${p.cashier||"-"}\nShift: ${p.shift}\nTransaksi: ${p.transactions||0}\nPenjualan: ${money(p.sales)}\nTunai: ${money(p.cash)}\nNontunai: ${money(p.nonCash)}\nPengeluaran: ${money(p.expense)}\nSaldo: ${money(p.balance)}\n\nStatus: Menunggu diterapkan ke Buku Kas.`;
+  return `✅ ${p.shift} • Kasir ${p.cashier||"-"} • Diterima`;
 }
 async function sendTelegramDetailReply(token,chatId,p){
   if(!chatId)return false;
