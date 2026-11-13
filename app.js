@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.32";
+const APP_VERSION="3.4.34";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -985,9 +985,9 @@ function openReceiptPhotoById(id){const x=store.tx.find(a=>String(a.id)===String
 function closeReceiptPhoto(){$("receiptModal")?.classList.remove('show')}
 
 function removeTx(id){appConfirm("Hapus transaksi ini?","Hapus transaksi").then(ok=>{if(ok){const target=findTxByEditKey(id);if(target?.sourceId && (target.source==="TELEGRAM_SHIFT" || String(target.sourceId).startsWith("TG-SHIFT-"))){const deleted=telegramDeletedIds();deleted.add(String(target.sourceId));saveTelegramDeletedIds(deleted)}store.tx=store.tx.filter(x=>x!==target);persist();refresh()}})}
-function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
+function openStock(id=null){$("stockModal").classList.add("show");$("stockTitle").textContent=id?"Edit Stok":"Tambah Stok";$("stockId").value=id||"";$("sName").value="";$("sBrand").value="";$("sPack").value="";$("sMin").value="";$("sQty").value="0";if(id){let x=stocks.find(a=>a.id==id);if(x){$("sName").value=x.name;$("sBrand").value=x.brand||"";$("sPack").value=x.pack;$("sMin").value=x.min;$("sQty").value=x.qty}}}
 function closeStock(){$("stockModal").classList.remove("show")}
-function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),pack=Number($("sPack").value)||1,min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return appAlert("Lengkapi nama, isi/pack, minimum pack, dan stok pack.","Data belum lengkap");let old=id?stocks.find(a=>a.id==id):null;let initialQty=old?.initialQty??qty;let x={id:id?Number(id):Date.now(),name,unit:"pack",stockUnit:"pack",pack,min,qty,initialQty,lastSO:old?.lastSO??qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
+function saveStock(){let id=$("stockId").value,name=$("sName").value.trim(),brand=$("sBrand").value.trim(),pack=Number($("sPack").value)||1,min=Number($("sMin").value),qty=Number($("sQty").value);if(!name||pack<=0||min<0||qty<0)return appAlert("Lengkapi nama, isi/pack, minimum pack, dan stok pack.","Data belum lengkap");let old=id?stocks.find(a=>a.id==id):null;let initialQty=old?.initialQty??qty;let x={...old,id:id?Number(id):Date.now(),name,brand,unit:"pack",stockUnit:"pack",pack,min,qty,initialQty,lastSO:old?.lastSO??qty};if(id)stocks=stocks.map(a=>a.id==id?x:a);else stocks.push(x);persist();closeStock();renderStock()}
 function stockStatus(x){return x.qty===0?'<span class="status low">Kurang</span>':x.qty<=x.min?'<span class="status low">Sisa Sedikit</span>':'<span class="status safe">Aman</span>'}
 function soCondition(qty,min){return qty<=0?"kurang":qty<=min?"sedikit":"aman"}
 function updateSOCondition(){const qty=Math.max(0,Number($("soQty").value)||0),x=stocks.find(a=>a.id===Number($("soId").value));if(!x)return;const st=soCondition(qty,x.min);document.querySelectorAll('input[name="soCondition"]').forEach(r=>r.checked=r.value===st);$("soConditionHint").textContent=st==="aman"?"Aman":st==="sedikit"?"Sisa Sedikit":"Kurang"}
@@ -1062,19 +1062,19 @@ function getBuyListItems(){
   return stocks.filter(x=>x.qty<=x.min).map(x=>{
     const target=Math.max(x.initialQty??x.qty,x.min);
     const buy=Math.max(0,target-x.qty);
-    return {name:x.name,buy};
+    return {name:x.name,brand:x.brand||"",buy};
   }).filter(x=>x.buy>0);
 }
 
 let bulkBuySelection=[];
 const BULK_PENDING_KEY="seblak_story_pending_bulk_purchase_v1";
-function savePendingBulkSelection(){try{const a=bulkBuySelection.filter(x=>x.checked).map(x=>({id:x.id,name:x.name,buy:x.buy}));if(a.length)localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(a));else localStorage.removeItem(BULK_PENDING_KEY);}catch(e){}}
+function savePendingBulkSelection(){try{const a=bulkBuySelection.filter(x=>x.checked).map(x=>({id:x.id,name:x.name,brand:x.brand||"",buy:x.buy}));if(a.length)localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(a));else localStorage.removeItem(BULK_PENDING_KEY);}catch(e){}}
 function readPendingBulkSelection(){try{const a=JSON.parse(localStorage.getItem(BULK_PENDING_KEY)||"[]");return Array.isArray(a)?a:[]}catch(e){return[]}}
 function clearPendingBulkSelection(){try{localStorage.removeItem(BULK_PENDING_KEY)}catch(e){}}
 function openBulkBuy(){
   const items=getBuyListItems();
   if(!items.length)return appAlert("Tidak ada barang yang perlu dibeli.","Belanja");
-  bulkBuySelection=items.map(x=>{const st=stocks.find(s=>s.name===x.name);return {...x,id:st?.id||0,checked:true};});
+  bulkBuySelection=items.map(x=>{const st=stocks.find(s=>s.name===x.name);return {...x,id:st?.id||0,brand:st?.brand||x.brand||"",checked:true};});
   savePendingBulkSelection();renderBulkBuySelect();$("bulkBuyModal").classList.add("show");
 }
 function closeBulkBuy(){$("bulkBuyModal").classList.remove("show")}
@@ -1089,8 +1089,8 @@ function toggleBulkBuy(i,checked){if(bulkBuySelection[i])bulkBuySelection[i].che
 function setBulkBuyQty(i,value){const x=bulkBuySelection[i];if(!x)return;const n=Math.max(0,Math.floor(Number(value)||0));x.buy=n;if(n===0)x.checked=false;else if(!x.checked)x.checked=true;savePendingBulkSelection();const input=document.querySelector(`#bulkBuySelectList .bulkBuyCheck:nth-child(${i+1}) .bulkQty input`);if(input&&Number(input.value)!==n)input.value=n;$("bulkBuySelectCount").textContent=`${bulkBuySelection.filter(x=>x.checked).length} barang dipilih`}
 function changeBulkBuyQty(i,delta){const x=bulkBuySelection[i];if(!x)return;setBulkBuyQty(i,(Number(x.buy)||0)+delta);renderBulkBuySelect()}
 function bulkBuySelectAll(v){bulkBuySelection.forEach(x=>{x.checked=v;if(v&&(!Number(x.buy)||Number(x.buy)<1))x.buy=1;});savePendingBulkSelection();renderBulkBuySelect()}
-async function printSelectedBulkBuy(){const items=bulkBuySelection.filter(x=>x.checked);if(!items.length)return appAlert("Centang minimal satu barang.","Cetak Daftar Belanja");let text="SEBLAK STORY\nDAFTAR BELANJA\n================================\n";items.forEach((x,i)=>{text+=`${String(i+1).padStart(2," ")}. ${String(x.name||"").slice(0,27)}  ${x.buy} pack\n`});text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";try{await sendReceiptTextBLE(text,"Daftar belanja berhasil dicetak")}catch(e){appAlert(e?.message||"Cetak BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak gagal")}}
-function startBulkPurchase(){const selected=bulkBuySelection.filter(x=>x.checked);if(!selected.length)return appAlert("Centang minimal satu barang yang dibeli.","Selesai Belanja");localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(selected.map(x=>({id:x.id,name:x.name,buy:x.buy}))));openBulkPurchaseForItems(selected)}
+async function printSelectedBulkBuy(){const items=bulkBuySelection.filter(x=>x.checked);if(!items.length)return appAlert("Centang minimal satu barang.","Cetak Daftar Belanja");let text="SEBLAK STORY\nDAFTAR BELANJA\n================================\n";items.forEach((x,i)=>{const st=stocks.find(s=>s.id===x.id||s.name===x.name);const brand=String(x.brand||st?.brand||"Tanpa merk").trim()||"Tanpa merk";text+=`${i+1}. ${brand}, ${String(x.name||"").slice(0,24)}, ${x.buy} pack\n`});text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";try{await sendReceiptTextBLE(text,"Daftar belanja berhasil dicetak")}catch(e){appAlert(e?.message||"Cetak BLE gagal. Hubungkan printer BLE terlebih dahulu.","Cetak gagal")}}
+function startBulkPurchase(){const selected=bulkBuySelection.filter(x=>x.checked);if(!selected.length)return appAlert("Centang minimal satu barang yang dibeli.","Selesai Belanja");localStorage.setItem(BULK_PENDING_KEY,JSON.stringify(selected.map(x=>({id:x.id,name:x.name,brand:x.brand||"",buy:x.buy}))));openBulkPurchaseForItems(selected)}
 function openBulkPurchaseForItems(selected){
   $("bulkBuyModal").classList.remove("show");const list=$("bulkPurchaseList");
   list.innerHTML=selected.map(x=>{const st=stocks.find(s=>s.id===x.id||s.name===x.name);const last=getLastBuyPrice(st);return `<div class="bulkPurchaseRow" data-bulk-id="${x.id||0}" data-bulk-name="${esc(x.name)}"><div class="bulkPurchaseTop"><label><input class="bulkBought" type="checkbox" checked> <b>${esc(x.name)}</b></label><span>Rencana ${x.buy} pack</span></div><div class="bulkPurchaseFields"><label>Jumlah dibeli<input class="bulkPack" type="number" min="0" value="${x.buy}" oninput="updateBulkPurchaseTotal()"></label><label>Harga/pack (Rp)<input class="bulkPrice" type="text" inputmode="numeric" autocomplete="off" min="0" value="${String(last||0).replace(/\B(?=(\d{3})+(?!\d))/g,".")}" oninput="updateBulkPurchaseTotal()"></label></div><small class="bulkLastPrice">Harga terakhir: ${last?money(last):"Belum ada"}</small></div>`}).join("");
@@ -1116,8 +1116,9 @@ async function printBuyListBLE(){
   if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Cetak Daftar Belanja");}
   let text="SEBLAK STORY\nDAFTAR BARANG YANG HARUS DIBELI\n================================\n";
   items.forEach((x,i)=>{
-    const name=String(x.name||"").slice(0,27);
-    text+=`${String(i+1).padStart(2," ")}. ${name}  ${x.buy} pack\n`;
+    const brand=String(x.brand||"Tanpa merk").trim()||"Tanpa merk";
+    const name=String(x.name||"").slice(0,24);
+    text+=`${i+1}. ${brand}, ${name}, ${x.buy} pack\n`;
   });
   text+="================================\nTotal item: "+items.length+"\n\nTerima kasih\nSeblak Story\n\n\n";
   try{await sendReceiptTextBLE(text,"Cetak daftar belanja berhasil");}
@@ -1127,7 +1128,7 @@ async function printBuyListBLE(){
 async function shareBuyListWhatsApp(){
   const items=getBuyListItems();
   if(!items.length){return appAlert("Tidak ada barang yang perlu dibeli.","Daftar Belanja");}
-  const lines=["🛒 DAFTAR BELANJA","SEBLAK STORY","",...items.map((x,i)=>`${i+1}. ${x.name} — ${x.buy} pack`)];
+  const lines=["🛒 DAFTAR BELANJA","SEBLAK STORY","",...items.map((x,i)=>`${i+1}. ${x.brand||"Tanpa merk"}, ${x.name}, ${x.buy} pack`)];
   const text=lines.join("\n");
   try{
     if(navigator.share){
@@ -1213,7 +1214,7 @@ async function printSOList(){
 function renderStock(){
   const q=($('stockSearch')?.value||'').toLowerCase();
   const r=stocks.filter(x=>{
-    if(!x.name.toLowerCase().includes(q)) return false;
+    if(!x.name.toLowerCase().includes(q) && !String(x.brand||'').toLowerCase().includes(q)) return false;
     if(stockStatusFilter==='sedikit' && !(Number(x.qty)>0 && Number(x.qty)<=Number(x.min))) return false;
     if(stockStatusFilter==='kurang' && Number(x.qty)!==0) return false;
     if(stockFilter==='so') return true;
@@ -1229,7 +1230,7 @@ function renderStock(){
   $('stockCards').style.display=isBuyTab?'none':'';
   $('buyListPanel').style.display=isBuyTab?'block':'none';
   if(isSOTab){
-    $('stockCards').innerHTML=r.map(x=>`<div class="soRow"><div class="soName"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div><b>${esc(x.name)}</b><small>Stok sistem: ${x.qty} pack</small></div></div><div class="soInputWrap"><input class="soInlineInput" type="number" min="0" value="${x.qty}" data-so-id="${x.id}" aria-label="Stok fisik ${esc(x.name)}"><span>pack</span></div></div>`).join('')||'<div class="empty">Belum ada bahan.</div>';
+    $('stockCards').innerHTML=r.map(x=>`<div class="soRow"><div class="soName"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div><b>${esc(x.name)}</b><small>${x.brand?`Merk: ${esc(x.brand)} • `:""}Stok sistem: ${x.qty} pack</small></div></div><div class="soInputWrap"><input class="soInlineInput" type="number" min="0" value="${x.qty}" data-so-id="${x.id}" aria-label="Stok fisik ${esc(x.name)}"><span>pack</span></div></div>`).join('')||'<div class="empty">Belum ada bahan.</div>';
     const oldPrint=document.getElementById('soPrintButton'); if(oldPrint) oldPrint.remove(); $('stockCards').insertAdjacentHTML('beforebegin','<button id="soPrintButton" type="button" class="so-print-btn" onclick="printSOList()">🖨️ Cetak SO 80mm</button>');
     $('stockCards').insertAdjacentHTML('afterend','<button type="button" class="primary big full soSaveBtn" onclick="saveInlineSO()">✓ Simpan SO</button>');
     const old=document.querySelector('.soSaveBtn');
@@ -1241,7 +1242,7 @@ function renderStock(){
   $('stockCards').innerHTML=r.map(x=>{
     const status=stockStatusValue(x)==='kurang'?'Kurang':stockStatusValue(x)==='sedikit'?'Sisa Sedikit':'Aman';
     const cls=status==='Kurang'?'stockBad':status==='Sisa Sedikit'?'stockWarn':'stockGood';
-    return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b><small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button></div></div>`;
+    return `<div class="stockCard"><div class="foodIcon">${x.name.toLowerCase().includes('mie')?'🍜':x.name.toLowerCase().includes('telur')?'🥚':x.name.toLowerCase().includes('bakso')?'🟤':x.name.toLowerCase().includes('kerupuk')?'🟠':x.name.toLowerCase().includes('sosis')?'🌭':'📦'}</div><div class="stockMain"><b>${esc(x.name)}</b>${x.brand?`<small class="stockBrand">Merk: ${esc(x.brand)}</small>`:`<small class="stockBrand stockBrandEmpty">Merk belum diisi</small>`}<small>Isi ${x.pack} per pack</small><span class="${cls}">Stok: ${x.qty} pack</span><small>Min. ${x.min} pack</small></div><div class="stockActions"><button type="button" onclick="openEditDelete(${x.id})">⋮</button><button type="button" class="buyMini" onclick="openBuy(${x.id})">Beli</button></div></div>`;
   }).join('')||'<div class="empty">Belum ada bahan pada filter ini.</div>';
   const needs=getBuyListItems(); $('buyList').innerHTML=needs.map(x=>`<div class="buyrow"><span><b>${esc(x.name)}</b></span><span class="buyqty">${x.buy} pack</span></div>`).join('')||'<div class="empty">Tidak ada barang yang perlu dibeli.</div>';
 }
