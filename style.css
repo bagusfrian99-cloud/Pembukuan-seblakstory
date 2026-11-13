@@ -319,3 +319,5 @@ body.kasPageActive #kasFixedActions{display:grid!important}.kasInputActions .kas
 .dailyBalanceItem span{display:flex;flex-direction:column;gap:2px}
 .dailyBalanceItem strong{font-size:11px;color:#202938;overflow-wrap:anywhere}
 .dailyBalanceItem .dailyIn strong{color:#24885b}.dailyBalanceItem .dailyOut strong{color:#d34c53}
+
+.reportRangeMode{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:9px 0 5px;font-size:11px;font-weight:600}.reportRangeMode select{border:0;background:#f1f3f6;border-radius:8px;padding:8px 10px;font-size:11px;min-width:120px}

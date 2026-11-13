@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.34";
+const APP_VERSION="3.4.35";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -1248,7 +1248,7 @@ function renderStock(){
 }
 
 
-let reportApplied={period:"month",month:today().slice(0,7),from:"",to:""};
+let reportApplied={period:"range",rangeMode:"1m",month:today().slice(0,7),from:"",to:""};
 let reportMode="finance";
 function ensureReportControls(){
   const p=$("period"),m=$("reportMonth"),f=$("reportFrom"),t=$("reportTo");
@@ -1265,17 +1265,39 @@ function setReportMode(mode){
   if(reportMode==='stock')renderStockReport(); else renderReport();
 }
 function shareReport(){
-  const text=reportMode==='stock'?buildStockShareText():`Laporan keuangan Seblak Story\n${$("reportFrom")?.value||'-'} s/d ${$("reportTo")?.value||'-'}\nPemasukan: ${$("reportInTop")?.textContent||'-'}\nPengeluaran: ${$("reportOutTop")?.textContent||'-'}\nSaldo/Laba: ${$("reportNetTop")?.textContent||'-'}`;
+  const text=reportMode==='stock'?buildStockShareText():`Laporan keuangan Seblak Story\n${$("reportFrom")?.value||'-'} s/d ${$("reportTo")?.value||'-'}\nPemasukan: ${$("reportInTop")?.textContent||'-'}\nPengeluaran: ${$("reportOutTop")?.textContent||'-'}\nLaba Per Periode: ${$("reportNetTop")?.textContent||'-'}`;
   if(navigator.share) navigator.share({title:'Laporan Seblak Story',text}).catch(()=>{}); else appAlert(text,'Share laporan');
 }
+function dateKeyLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
+function addMonthsClamped(dateKey,months){
+  const [y,m,d]=String(dateKey||today()).split('-').map(Number);
+  const targetMonth=(m-1)+months, targetYear=y+Math.floor(targetMonth/12), month=((targetMonth%12)+12)%12;
+  const last=new Date(targetYear,month+1,0).getDate();
+  return dateKeyLocal(new Date(targetYear,month,Math.min(d,last)));
+}
+function setReportRangeEnd(mode){
+  const from=$("reportFrom")?.value||today(), to=$("reportTo"); if(!to)return;
+  if(mode==='14d'){const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+13);to.value=dateKeyLocal(d);}
+  else if(mode==='1m'){to.value=addMonthsClamped(from,1);const d=new Date(`${to.value}T12:00:00`);d.setDate(d.getDate()-1);to.value=dateKeyLocal(d);}
+}
+function changeReportRangeMode(mode){
+  const m=['14d','1m','custom'].includes(mode)?mode:'custom';
+  if(m!=='custom')setReportRangeEnd(m);
+  reportApplied.rangeMode=m;
+}
+function onReportStartDateChange(){
+  const mode=$("reportRangeMode")?.value||'custom';
+  if(mode!=='custom')setReportRangeEnd(mode);
+}
+function onReportEndDateChange(){
+  const mode=$("reportRangeMode"); if(mode)mode.value='custom';
+  reportApplied.rangeMode='custom';
+}
 function applyReportFilter(){
+  const mode=$("reportRangeMode")?.value||'custom';
+  if(mode!=='custom')setReportRangeEnd(mode);
   const fromValue=$("reportFrom").value||"",toValue=$("reportTo").value||"";
-  reportApplied={
-    period:(fromValue||toValue)?"custom":($("period").value||"month"),
-    month:$("reportMonth").value||today().slice(0,7),
-    from:fromValue,
-    to:toValue
-  };
+  reportApplied={period:"range",rangeMode:mode,month:$("reportMonth")?.value||today().slice(0,7),from:fromValue,to:toValue};
   if(reportMode==='stock')renderStockReport(); else renderReport();
   appAlert("Filter laporan berhasil diterapkan.","Laporan diperbarui");
 }
@@ -1284,28 +1306,23 @@ function txDay(x){
   return v.length>=10 ? v.slice(0,10) : "";
 }
 function reportRows(){
-  const p=reportApplied.period||"month",d=today();
   const all=Array.isArray(store.tx)?store.tx:[];
   const typeOf=x=>{const t=String(x?.type??x?.jenis??"").trim().toLowerCase();return ["in","pemasukan","income","masuk","credit"].includes(t)?"in":(["out","pengeluaran","expense","keluar","debit"].includes(t)?"out":(String(x?.name||"").toLowerCase().includes("pengeluaran")?"out":"in"));};
-  const dayOf=x=>{const raw=String(x?.date??x?.tanggal??x?.createdAt??"");if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);const dt=new Date(raw);return Number.isNaN(dt.getTime())?"":`${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;};
+  const dayOf=x=>{const raw=String(x?.date??x?.tanggal??x?.createdAt??"");if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);const dt=new Date(raw);return Number.isNaN(dt.getTime())?"":dateKeyLocal(dt);};
   const normalized=all.map(x=>({...x,type:typeOf(x),_day:dayOf(x),amount:Number(x?.amount??x?.jumlah??0)||0})).filter(x=>x._day);
-  if(p==="today")return normalized.filter(x=>x._day===d);
-  if(p==="week"){const cut=new Date();cut.setHours(0,0,0,0);cut.setDate(cut.getDate()-13);const s=`${cut.getFullYear()}-${String(cut.getMonth()+1).padStart(2,"0")}-${String(cut.getDate()).padStart(2,"0")}`;return normalized.filter(x=>x._day>=s&&x._day<=d);}
-  if(p==="month"){const m=reportApplied.month||d.slice(0,7);return normalized.filter(x=>x._day.slice(0,7)===m);}
-  const f=reportApplied.from||"",t=reportApplied.to||"";const from=f&&t&&f>t?t:f,to=f&&t&&f>t?f:t;return normalized.filter(x=>(!from||x._day>=from)&&(!to||x._day<=to));
+  let f=reportApplied.from||"",t=reportApplied.to||"";if(f&&t&&f>t)[f,t]=[t,f];
+  return normalized.filter(x=>(!f||x._day>=f)&&(!t||x._day<=t));
 }
 function renderReport(){
   ensureReportControls(); let r=reportRows(),i=sum(r,'in'),o=sum(r,'out'); $('reportInTop').textContent=money(i); $('reportOutTop').textContent=money(o); $('reportNetTop').textContent=money(i-o);
-  $('reportSummary').innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Bersih</b><b>${money(i-o)}</b></div>`;
-  const chart=$('reportChart'); let html=''; const base=new Date(); for(let i=6;i>=0;i--){const x=new Date();x.setDate(base.getDate()-i);const k=`${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`;const ins=sum(r.filter(t=>txDay(t)===k),'in'),outs=sum(r.filter(t=>txDay(t)===k),'out'),mx=Math.max(ins,outs,1);html+=`<div class="barDay"><div class="bars"><i class="bar inBar" style="height:${Math.max(6,ins/mx*90)}px"></i><i class="bar outBar" style="height:${Math.max(6,outs/mx*90)}px"></i></div><small>${x.getDate()}/${x.getMonth()+1}</small></div>`} chart.innerHTML=html;
+  $('reportSummary').innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Laba Per Periode</b><b>${money(i-o)}</b></div>`;
+  const chart=$('reportChart'); let html=''; const bounds=reportDateBounds(); const start=bounds.from?new Date(`${bounds.from}T12:00:00`):new Date(); const end=bounds.to?new Date(`${bounds.to}T12:00:00`):new Date(); const days=Math.max(1,Math.min(31,Math.round((end-start)/86400000)+1)); for(let i=0;i<days;i++){const x=new Date(start);x.setDate(start.getDate()+i);const k=dateKeyLocal(x);const ins=sum(r.filter(t=>txDay(t)===k),'in'),outs=sum(r.filter(t=>txDay(t)===k),'out'),mx=Math.max(ins,outs,1);html+=`<div class="barDay"><div class="bars"><i class="bar inBar" style="height:${Math.max(3,ins/mx*90)}px"></i><i class="bar outBar" style="height:${Math.max(3,outs/mx*90)}px"></i></div><small>${x.getDate()}/${x.getMonth()+1}</small></div>`} chart.innerHTML=html;
   $('reportTable').innerHTML=r.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(x=>`<tr><td>${esc(String(x.date||'').replace('T',' '))}</td><td>${x.type==='in'?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${esc(txPaymentMethod(x))}</td><td>${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
 }
 function reportDateBounds(){
-  const d=today(), p=reportApplied.period||'month';
-  if(p==='today')return {from:d,to:d};
-  if(p==='week'){const x=new Date();x.setHours(0,0,0,0);x.setDate(x.getDate()-13);return {from:x.toISOString().slice(0,10),to:d};}
-  if(p==='month'){const m=reportApplied.month||d.slice(0,7);return {from:`${m}-01`,to:`${m}-${new Date(Number(m.slice(0,4)),Number(m.slice(5,7)),0).getDate()}`};}
-  let from=reportApplied.from||'',to=reportApplied.to||'';if(from&&to&&from>to)[from,to]=[to,from];return {from,to};
+  let from=reportApplied.from||"",to=reportApplied.to||"";
+  if(from&&to&&from>to)[from,to]=[to,from];
+  return {from,to};
 }
 function purchaseRowsForReport(){
   const {from,to}=reportDateBounds();
@@ -1664,12 +1681,12 @@ async function sendReceiptTextBLE(text,title="Cetak berhasil"){
   appAlert("Data berhasil dikirim langsung ke printer BLE.",title);
 }
 async function printReportBLE(){
-  const from=$("reportFrom")?.value||"", to=$("reportTo")?.value||"";
-  const ins=store.tx.filter(x=>x.type==="in"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to));
-  const outs=store.tx.filter(x=>x.type==="out"&&(!from||x.date.slice(0,10)>=from)&&(!to||x.date.slice(0,10)<=to));
+  const rows=reportRows();
+  const ins=rows.filter(x=>x.type==='in'),outs=rows.filter(x=>x.type==='out');
   const ti=ins.reduce((a,x)=>a+(Number(x.amount)||0),0), toT=outs.reduce((a,x)=>a+(Number(x.amount)||0),0);
-  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+printerMoney(ti)+"\nTotal Pengeluaran: "+printerMoney(toT)+"\nSaldo / Laba: "+printerMoney(ti-toT)+"\n\nTRANSAKSI\n";
-  for(const x of [...ins,...outs].sort((a,b)=>String(b.date).localeCompare(String(a.date)))) text+=`${String(x.date||'').replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${printerMoney(x.amount)}\n`;
+  const {from,to}=reportDateBounds();
+  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+printerMoney(ti)+"\nTotal Pengeluaran: "+printerMoney(toT)+"\nLaba Per Periode: "+printerMoney(ti-toT)+"\n\nTRANSAKSI\n";
+  for(const x of rows.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')))) text+=`${String(x.date||'').replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${printerMoney(x.amount)}\n`;
   text+="\nTerima kasih\nSeblak Story\n\n\n";
   await sendReceiptTextBLE(text,"Cetak laporan berhasil");
 }
