@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.35";
+const APP_VERSION="3.4.36";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -894,6 +894,12 @@ function renderDashboard(){
   if($('dNonCashBalance'))$('dNonCashBalance').textContent=money(bal.nonTunai);
   $('dIn').textContent=money(sum(td,'in'));
   $('dOut').textContent=money(sum(td,'out'));
+  const dayIn=sum(td,'in'), dayOut=sum(td,'out');
+  const dayMargin=dayIn>0?((dayIn-dayOut)/dayIn*100):null;
+  if($('dMargin')) $('dMargin').textContent=dayMargin===null?'—':`${dayMargin.toFixed(1).replace('.',',')}%`;
+  if($('dDayIn')) $('dDayIn').textContent=formatDashboardDate(d).split(',')[0];
+  if($('dDayOut')) $('dDayOut').textContent=formatDashboardDate(d).split(',')[0];
+  if($('dDayMargin')) $('dDayMargin').textContent=formatDashboardDate(d).split(',')[0];
   if($('dCount')) $('dCount').textContent=mo.length;
 
   const dateLabel=$('dashDate'); if(dateLabel) dateLabel.textContent=formatDashboardDate(d);
@@ -1265,7 +1271,7 @@ function setReportMode(mode){
   if(reportMode==='stock')renderStockReport(); else renderReport();
 }
 function shareReport(){
-  const text=reportMode==='stock'?buildStockShareText():`Laporan keuangan Seblak Story\n${$("reportFrom")?.value||'-'} s/d ${$("reportTo")?.value||'-'}\nPemasukan: ${$("reportInTop")?.textContent||'-'}\nPengeluaran: ${$("reportOutTop")?.textContent||'-'}\nLaba Per Periode: ${$("reportNetTop")?.textContent||'-'}`;
+  const text=reportMode==='stock'?buildStockShareText():`Laporan keuangan Seblak Story\n${$("reportFrom")?.value||'-'} s/d ${$("reportTo")?.value||'-'}\nPemasukan: ${$("reportInTop")?.textContent||'-'}\nPengeluaran: ${$("reportOutTop")?.textContent||'-'}\nLaba Per Periode: ${$("reportNetTop")?.textContent||'-'}\nMargin Bersih: ${$("reportMarginTop")?.textContent||'-'}`;
   if(navigator.share) navigator.share({title:'Laporan Seblak Story',text}).catch(()=>{}); else appAlert(text,'Share laporan');
 }
 function dateKeyLocal(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -1277,11 +1283,12 @@ function addMonthsClamped(dateKey,months){
 }
 function setReportRangeEnd(mode){
   const from=$("reportFrom")?.value||today(), to=$("reportTo"); if(!to)return;
-  if(mode==='14d'){const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+13);to.value=dateKeyLocal(d);}
+  if(mode==='7d'){const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+6);to.value=dateKeyLocal(d);}
+  else if(mode==='14d'){const d=new Date(`${from}T12:00:00`);d.setDate(d.getDate()+13);to.value=dateKeyLocal(d);}
   else if(mode==='1m'){to.value=addMonthsClamped(from,1);const d=new Date(`${to.value}T12:00:00`);d.setDate(d.getDate()-1);to.value=dateKeyLocal(d);}
 }
 function changeReportRangeMode(mode){
-  const m=['14d','1m','custom'].includes(mode)?mode:'custom';
+  const m=['7d','14d','1m','custom'].includes(mode)?mode:'custom';
   if(m!=='custom')setReportRangeEnd(m);
   reportApplied.rangeMode=m;
 }
@@ -1311,11 +1318,13 @@ function reportRows(){
   const dayOf=x=>{const raw=String(x?.date??x?.tanggal??x?.createdAt??"");if(/^\d{4}-\d{2}-\d{2}/.test(raw))return raw.slice(0,10);const dt=new Date(raw);return Number.isNaN(dt.getTime())?"":dateKeyLocal(dt);};
   const normalized=all.map(x=>({...x,type:typeOf(x),_day:dayOf(x),amount:Number(x?.amount??x?.jumlah??0)||0})).filter(x=>x._day);
   let f=reportApplied.from||"",t=reportApplied.to||"";if(f&&t&&f>t)[f,t]=[t,f];
-  return normalized.filter(x=>(!f||x._day>=f)&&(!t||x._day<=t));
+  return normalized.filter(x=>(!f||x._day>=f)&&(!t||x._day<=t)&&!['voided','reversed','batal','dibatalkan'].includes(String(x.status||'').toLowerCase()));
 }
 function renderReport(){
   ensureReportControls(); let r=reportRows(),i=sum(r,'in'),o=sum(r,'out'); $('reportInTop').textContent=money(i); $('reportOutTop').textContent=money(o); $('reportNetTop').textContent=money(i-o);
-  $('reportSummary').innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Laba Per Periode</b><b>${money(i-o)}</b></div>`;
+  const margin=i>0?((i-o)/i*100):null;
+  $('reportSummary').innerHTML=`<div class="report"><b>Pemasukan</b><b class="green">${money(i)}</b></div><div class="report"><b>Pengeluaran</b><b class="red">${money(o)}</b></div><div class="report"><b>Laba Per Periode</b><b>${money(i-o)}</b></div><div class="report"><b>Margin Bersih</b><b class="green">${margin===null?'—':margin.toFixed(1).replace('.',',')+'%'}</b></div>`;
+  if($('reportMarginTop'))$('reportMarginTop').textContent=margin===null?'—':margin.toFixed(1).replace('.',',')+'%';
   const chart=$('reportChart'); let html=''; const bounds=reportDateBounds(); const start=bounds.from?new Date(`${bounds.from}T12:00:00`):new Date(); const end=bounds.to?new Date(`${bounds.to}T12:00:00`):new Date(); const days=Math.max(1,Math.min(31,Math.round((end-start)/86400000)+1)); for(let i=0;i<days;i++){const x=new Date(start);x.setDate(start.getDate()+i);const k=dateKeyLocal(x);const ins=sum(r.filter(t=>txDay(t)===k),'in'),outs=sum(r.filter(t=>txDay(t)===k),'out'),mx=Math.max(ins,outs,1);html+=`<div class="barDay"><div class="bars"><i class="bar inBar" style="height:${Math.max(3,ins/mx*90)}px"></i><i class="bar outBar" style="height:${Math.max(3,outs/mx*90)}px"></i></div><small>${x.getDate()}/${x.getMonth()+1}</small></div>`} chart.innerHTML=html;
   $('reportTable').innerHTML=r.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||''))).map(x=>`<tr><td>${esc(String(x.date||'').replace('T',' '))}</td><td>${x.type==='in'?'<span class="green"><b>Pemasukan</b></span>':'<span class="red"><b>Pengeluaran</b></span>'}</td><td>${esc(x.name)}</td><td>${esc(txPaymentMethod(x))}</td><td>${money(x.amount)}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">Tidak ada data pada periode ini.</td></tr>';
 }
@@ -1685,7 +1694,7 @@ async function printReportBLE(){
   const ins=rows.filter(x=>x.type==='in'),outs=rows.filter(x=>x.type==='out');
   const ti=ins.reduce((a,x)=>a+(Number(x.amount)||0),0), toT=outs.reduce((a,x)=>a+(Number(x.amount)||0),0);
   const {from,to}=reportDateBounds();
-  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+printerMoney(ti)+"\nTotal Pengeluaran: "+printerMoney(toT)+"\nLaba Per Periode: "+printerMoney(ti-toT)+"\n\nTRANSAKSI\n";
+  let text="SEBLAK STORY PEMBUKUAN\n==============================\nLAPORAN KEUANGAN\n"+(from||"-")+" s/d "+(to||"-")+"\n\nTotal Pemasukan: "+printerMoney(ti)+"\nTotal Pengeluaran: "+printerMoney(toT)+"\nLaba Per Periode: "+printerMoney(ti-toT)+"\nMargin Bersih: "+(ti>0?(((ti-toT)/ti)*100).toFixed(1).replace('.',',')+'%':'—')+"\n\nTRANSAKSI\n";
   for(const x of rows.slice().sort((a,b)=>String(b.date||'').localeCompare(String(a.date||'')))) text+=`${String(x.date||'').replace("T"," ")} ${x.type==="in"?"+":"-"} ${x.name}\n${printerMoney(x.amount)}\n`;
   text+="\nTerima kasih\nSeblak Story\n\n\n";
   await sendReceiptTextBLE(text,"Cetak laporan berhasil");
@@ -1701,7 +1710,7 @@ async function printStockReportBLE(){
   await sendReceiptTextBLE(text,"Cetak laporan stok berhasil");
 }
 
-function exportCSV(){let r=reportRows(),rows=[["Tanggal","Jenis","Nama","Metode","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,txPaymentMethod(x),x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
+function exportCSV(){let r=reportRows(),i=sum(r,'in'),o=sum(r,'out'),margin=i>0?((i-o)/i*100).toFixed(1)+'%':'—',rows=[["Ringkasan","Nilai"],["Total Pemasukan",i],["Total Pengeluaran",o],["Laba Per Periode",i-o],["Margin Bersih",margin],[],["Tanggal","Jenis","Nama","Metode","Jumlah","Keterangan"],...r.map(x=>[x.date,x.type==="in"?"Pemasukan":"Pengeluaran",x.name,txPaymentMethod(x),x.amount,x.note||""])];let csv=rows.map(a=>a.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download="laporan-pembukuan-seblak-story.csv";a.click()}
 
 
 
