@@ -1,4 +1,4 @@
-const APP_VERSION="3.4.36";
+const APP_VERSION="3.4.37";
 let pendingVoiceStock=null;
 const KEY="seblak_story_v314";
 const HOME_KEY="seblak_story_rumah_v1";
@@ -224,8 +224,22 @@ async function prepareBackupEncryption(password){
 }
 async function hasBackupEncryption(){return !!(await getLocalCryptoKey())}
 async function encryptedBackupObject(){
-  const key=await getLocalCryptoKey();
+  let key=await getLocalCryptoKey();
+  // A key restored by older builds may only have ["decrypt"] usage.
+  // Repair it from the wrapped key metadata before attempting a new backup.
+  if(key && !key.usages?.includes("encrypt")){
+    const meta=JSON.parse(localStorage.getItem("seblak_story_backup_crypto_meta_v1")||"null");
+    if(!meta?.salt||!meta?.wrappedKey)throw new Error("Kunci backup lama hanya bisa decrypt dan metadata pemulihan tidak lengkap. Restore ulang dengan password backup.");
+    const pass=prompt("Perbaikan keamanan backup diperlukan. Masukkan password backup untuk mengaktifkan kembali enkripsi:");
+    if(!pass)throw new Error("Backup dibatalkan. Kunci enkripsi belum diperbaiki.");
+    const wrapKey=await deriveWrapKey(pass,bytesFromB64(meta.salt));
+    try{
+      key=await crypto.subtle.unwrapKey("raw",bytesFromB64(meta.wrappedKey),wrapKey,{name:"AES-KW"},{name:"AES-GCM",length:256},false,["encrypt","decrypt"]);
+    }catch(e){throw new Error("Password backup salah atau kunci backup rusak. Data lokal tidak diubah.");}
+    await putLocalCryptoKey(key);
+  }
   if(!key)throw new Error("Enkripsi backup belum diaktifkan. Masukkan password backup terlebih dahulu.");
+  if(!key.usages?.includes("encrypt"))throw new Error("Kunci backup tidak memiliki izin enkripsi. Silakan pulihkan kunci dengan password backup.");
   const plain=JSON.stringify(await backupPlainPayload());
   const iv=crypto.getRandomValues(new Uint8Array(12));
   const cipher=await crypto.subtle.encrypt({name:"AES-GCM",iv},key,new TextEncoder().encode(plain));
@@ -238,7 +252,7 @@ async function decryptBackupObject(root,password){
   if(!password||password.length<8)throw new Error("Password backup minimal 8 karakter.");
   const salt=bytesFromB64(root.salt), wrapped=bytesFromB64(root.wrappedKey);
   const wrapKey=await deriveWrapKey(password,salt);
-  let key; try{key=await crypto.subtle.unwrapKey("raw",wrapped,wrapKey,{name:"AES-KW"},{name:"AES-GCM",length:256},false,["decrypt"])}catch(e){throw new Error("Password backup salah atau backup rusak.")}
+  let key; try{key=await crypto.subtle.unwrapKey("raw",wrapped,wrapKey,{name:"AES-KW"},{name:"AES-GCM",length:256},false,["encrypt","decrypt"])}catch(e){throw new Error("Password backup salah atau backup rusak.")}
   const iv=bytesFromB64(root.iv), cipher=bytesFromB64(root.ciphertext);
   let plain; try{plain=await crypto.subtle.decrypt({name:"AES-GCM",iv},key,cipher)}catch(e){throw new Error("Backup tidak dapat didekripsi. Password salah atau file rusak.")}
   const payload=JSON.parse(new TextDecoder().decode(plain));
